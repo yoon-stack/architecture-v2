@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 
 const COLORS = { orange: "#f97316", blue: "#3b82f6", green: "#22c55e", yellow: "#eab308", gray: "#94a3b8" };
 const BW = 200, BH = 56, PAD = 20, HEADER_H = 42, PILL_H = 24, PILL_MIN_W = 80;
-const INTER_BLOCK = 200, ROW_GAP = 80;
+const INTER_BLOCK = 280, ROW_GAP = 140;
 
 const hierarchy = [
   { id: "du42", name: "du42", reqs: 1, color: COLORS.yellow },
@@ -54,18 +54,19 @@ function layoutNode(node, ox, oy, expSet, out) {
   for (let i = 0; i < kids.length; i += maxPerRow) rows.push(kids.slice(i, i + maxPerRow));
   const cs = {}, tmp = {};
   for (const k of kids) cs[k.id] = layoutNode(k, 0, 0, expSet, tmp);
-  let totalH = HEADER_H + PAD, maxRowW = 0;
+  const innerPad = PAD + 10;
+  let totalH = HEADER_H + innerPad, maxRowW = 0;
   const rm = [];
   for (const row of rows) {
     let rw = 0, rh = 0;
     for (let i = 0; i < row.length; i++) { rw += cs[row[i].id].w; if (i < row.length - 1) rw += INTER_BLOCK; rh = Math.max(rh, cs[row[i].id].h); }
     rm.push({ rw, rh }); maxRowW = Math.max(maxRowW, rw); totalH += rh + ROW_GAP;
   }
-  totalH = totalH - ROW_GAP + PAD + 50;
-  const tW = maxRowW + PAD * 2;
-  let cy = oy + HEADER_H + PAD;
+  totalH = totalH - ROW_GAP + innerPad + 50;
+  const tW = maxRowW + innerPad * 2;
+  let cy = oy + HEADER_H + innerPad;
   for (let ri = 0; ri < rows.length; ri++) {
-    let cx = ox + PAD;
+    let cx = ox + innerPad;
     for (const kid of rows[ri]) { layoutNode(kid, cx, cy, expSet, out); cx += cs[kid.id].w + INTER_BLOCK; }
     cy += rm[ri].rh + ROW_GAP;
   }
@@ -74,8 +75,8 @@ function layoutNode(node, ox, oy, expSet, out) {
 }
 
 function computeLayout(expSet) {
-  const out = {}; let cx = 40;
-  for (const n of hierarchy) { const r = layoutNode(n, cx, 40, expSet, out); cx += r.w + INTER_BLOCK; }
+  const out = {}; let cx = 80;
+  for (const n of hierarchy) { const r = layoutNode(n, cx, 80, expSet, out); cx += r.w + INTER_BLOCK; }
   return out;
 }
 
@@ -89,19 +90,28 @@ function getDots(b) {
   ];
 }
 
-function assignDots(ifaces, vis) {
+function assignDots(ifaces, vis, dotOverrides = {}) {
   const used = {}, out = {};
   for (const iface of ifaces) {
     const src = vis[iface.source], tgt = vis[iface.target]; if (!src || !tgt) continue;
     const sd = getDots(src), td = getDots(tgt);
     const us = used[iface.source] || new Set(), ut = used[iface.target] || new Set();
     const tcx = tgt.x + tgt.w / 2, tcy = tgt.y + tgt.h / 2, scx = src.x + src.w / 2, scy = src.y + src.h / 2;
+
+    // Check for manual overrides
+    const srcOvr = dotOverrides[`${iface.id}_source`];
+    const tgtOvr = dotOverrides[`${iface.id}_target`];
+
     let bs = null, bsd = Infinity;
-    for (const d of sd) { if (us.has(d.id)) continue; const di = Math.hypot(d.cx - tcx, d.cy - tcy); if (di < bsd) { bsd = di; bs = d; } }
+    if (srcOvr) { bs = sd.find(d => d.id === srcOvr) || null; }
+    if (!bs) { for (const d of sd) { if (us.has(d.id)) continue; const di = Math.hypot(d.cx - tcx, d.cy - tcy); if (di < bsd) { bsd = di; bs = d; } } }
     if (!bs) { bsd = Infinity; for (const d of sd) { const di = Math.hypot(d.cx - tcx, d.cy - tcy); if (di < bsd) { bsd = di; bs = d; } } }
+
     let bt = null, btd = Infinity;
-    for (const d of td) { if (ut.has(d.id)) continue; const di = Math.hypot(d.cx - scx, d.cy - scy); if (di < btd) { btd = di; bt = d; } }
+    if (tgtOvr) { bt = td.find(d => d.id === tgtOvr) || null; }
+    if (!bt) { for (const d of td) { if (ut.has(d.id)) continue; const di = Math.hypot(d.cx - scx, d.cy - scy); if (di < btd) { btd = di; bt = d; } } }
     if (!bt) { btd = Infinity; for (const d of td) { const di = Math.hypot(d.cx - scx, d.cy - scy); if (di < btd) { btd = di; bt = d; } } }
+
     us.add(bs.id); ut.add(bt.id); used[iface.source] = us; used[iface.target] = ut;
     out[iface.id] = { s: bs, t: bt };
   }
@@ -110,7 +120,7 @@ function assignDots(ifaces, vis) {
 
 function computePills(ifaces, vis, dots, offsets) {
   const pills = {}, placed = [];
-  const blockRects = Object.values(vis).filter(s => !(s.expanded && s.hasChildren)).map(b => ({ x: b.x - 8, y: b.y - 8, w: b.w + 16, h: b.h + 16 }));
+  const blockRects = Object.values(vis).filter(s => !(s.expanded && s.hasChildren)).map(b => ({ x: b.x - 16, y: b.y - 16, w: b.w + 32, h: b.h + 32 }));
   for (const iface of ifaces) {
     const da = dots[iface.id]; if (!da) continue;
     const pw = Math.max(iface.name.length * 6.4 + 24, PILL_MIN_W);
@@ -126,8 +136,8 @@ function computePills(ifaces, vis, dots, offsets) {
       const dx = da.t.cx - da.s.cx, dy = da.t.cy - da.s.cy, len = Math.hypot(dx, dy) || 1;
       const nx = -dy / len, ny = dx / len;
       let found = false;
-      for (let s = 1; s <= 14 && !found; s++) for (const sg of [1, -1]) {
-        const tx = bx + nx * s * 30 * sg + off.dx, ty = by + ny * s * 30 * sg + off.dy;
+      for (let s = 1; s <= 20 && !found; s++) for (const sg of [1, -1]) {
+        const tx = bx + nx * s * 40 * sg + off.dx, ty = by + ny * s * 40 * sg + off.dy;
         if (!col(tx, ty)) { px = tx; py = ty; found = true; break; }
       }
     }
@@ -156,14 +166,23 @@ const initRequirements = [
 ];
 
 const initIfaces = [
-  { id: "INT-1", source: "stage-1", target: "ground-station", name: "Stage 1 → Ground Stn", desc: "", interfaceType: "", requirements: [], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10" },
-  { id: "INT-2", source: "ground-station", target: "stage-2", name: "Ground Stn → Stage 2", desc: "", interfaceType: "", requirements: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14" },
-  { id: "INT-3", source: "s1-avionics", target: "s1-propulsion", name: "Avionics → Propulsion", desc: "", interfaceType: "Mechanical", requirements: [], dateCreated: "2025-05-12", dateLastUpdated: "2025-08-10" },
+  { id: "INT-1", source: "stage-1", target: "ground-station", name: "Stage 1 → Ground Stn", desc: "Telemetry downlink from Stage 1 to Ground Station", interfaceType: "Signal", requirements: ["REQ-78"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10" },
+  { id: "INT-2", source: "ground-station", target: "stage-2", name: "Ground Stn → Stage 2", desc: "Command uplink to Stage 2", interfaceType: "Signal", requirements: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14" },
+  { id: "INT-3", source: "s1-avionics", target: "s1-propulsion", name: "Avionics → Propulsion", desc: "Engine control commands and thrust vector data", interfaceType: "Mechanical", requirements: ["REQ-110"], dateCreated: "2025-05-12", dateLastUpdated: "2025-08-10" },
   { id: "INT-5", source: "example", target: "stage-2", name: "Example → Stage 2", desc: "", interfaceType: "", requirements: [], dateCreated: "2024-12-02", dateLastUpdated: "2025-08-10" },
-  { id: "INT-24", source: "stage-1", target: "stage-2", name: "Stage 1 → Stage 2", desc: "", interfaceType: "", requirements: ["REQ-78"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10" },
-  { id: "INT-25", source: "stage-2", target: "stage-1", name: "Stage 2 → Stage 1", desc: "", interfaceType: "", requirements: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14" },
-  { id: "INT-30", source: "s1-avionics", target: "s2-avionics", name: "S1 Avio → S2 Avio", desc: "", interfaceType: "Signal", requirements: [], dateCreated: "2025-05-28", dateLastUpdated: "2025-05-28" },
-  { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "", interfaceType: "", requirements: ["REQ-67"], dateCreated: "2025-02-19", dateLastUpdated: "2025-05-18" },
+  { id: "INT-6", source: "s1-propulsion", target: "s1-structures", name: "Propulsion → Structures", desc: "Thrust load transfer interface", interfaceType: "Mechanical", requirements: ["REQ-62", "REQ-67"], dateCreated: "2024-11-15", dateLastUpdated: "2025-07-22" },
+  { id: "INT-7", source: "s2-avionics", target: "s2-propulsion", name: "S2 Avio → S2 Propulsion", desc: "Flight computer to engine controller", interfaceType: "Electrical", requirements: ["REQ-78"], dateCreated: "2025-01-10", dateLastUpdated: "2025-06-18" },
+  { id: "INT-8", source: "s2-propulsion", target: "s2-structures", name: "S2 Propulsion → Structures", desc: "Upper stage thrust loads", interfaceType: "Mechanical", requirements: ["REQ-67"], dateCreated: "2025-02-05", dateLastUpdated: "2025-09-03" },
+  { id: "INT-9", source: "s1-avionics", target: "s1-payload", name: "Avionics → Payload", desc: "Payload telemetry relay", interfaceType: "Signal", requirements: [], dateCreated: "2025-04-20", dateLastUpdated: "2025-04-20" },
+  { id: "INT-10", source: "s2-avionics", target: "s2-navigation", name: "S2 Avio → Navigation", desc: "Inertial navigation data feed", interfaceType: "Signal", requirements: ["REQ-101"], dateCreated: "2025-03-14", dateLastUpdated: "2025-08-29" },
+  { id: "INT-11", source: "s2-navigation", target: "s2-attitude", name: "Navigation → Attitude Ctrl", desc: "Attitude correction commands from nav system", interfaceType: "Signal", requirements: ["REQ-101"], dateCreated: "2025-05-01", dateLastUpdated: "2025-10-07" },
+  { id: "INT-12", source: "s2-avionics", target: "s2-data-handling", name: "S2 Avio → Data Handling", desc: "Onboard data bus interface", interfaceType: "Electrical", requirements: ["REQ-78"], dateCreated: "2025-06-12", dateLastUpdated: "2025-06-12" },
+  { id: "INT-13", source: "s2-separation", target: "s2-structures", name: "Separation → Structures", desc: "Stage separation mechanism mounting", interfaceType: "Mechanical", requirements: ["REQ-67", "REQ-110"], dateCreated: "2025-01-28", dateLastUpdated: "2025-07-15" },
+  { id: "INT-14", source: "s2-payload-fairing", target: "s2-structures", name: "Fairing → Structures", desc: "Fairing attachment points", interfaceType: "Mechanical", requirements: ["REQ-62"], dateCreated: "2025-03-05", dateLastUpdated: "2025-09-20" },
+  { id: "INT-24", source: "stage-1", target: "stage-2", name: "Stage 1 → Stage 2", desc: "Inter-stage structural and electrical interface", interfaceType: "Mechanical", requirements: ["REQ-78", "REQ-67"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10" },
+  { id: "INT-25", source: "stage-2", target: "stage-1", name: "Stage 2 → Stage 1", desc: "Staging separation signal", interfaceType: "Signal", requirements: ["REQ-110"], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14" },
+  { id: "INT-30", source: "s1-avionics", target: "s2-avionics", name: "S1 Avio → S2 Avio", desc: "Cross-stage avionics data link", interfaceType: "Signal", requirements: ["REQ-78"], dateCreated: "2025-05-28", dateLastUpdated: "2025-05-28" },
+  { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "External data uplink", interfaceType: "Electrical", requirements: ["REQ-67"], dateCreated: "2025-02-19", dateLastUpdated: "2025-05-18" },
 ];
 
 function MiniMap({ blocks, pan, zoom, vw, vh }) {
@@ -282,6 +301,131 @@ function InterfaceModal({ mode, sourceId, targetId, allSystems, allRequirements,
   </div>;
 }
 
+function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSave, onClose, onAddReq }) {
+  const [vis, setVis] = useState(false);
+  const [editState, setEditState] = useState(null);
+  const reqDropRef = useRef(null);
+  const [reqDropOpen, setReqDropOpen] = useState(false);
+  const [newReqText, setNewReqText] = useState("");
+
+  useEffect(() => { requestAnimationFrame(() => requestAnimationFrame(() => setVis(true))); }, []);
+  useEffect(() => {
+    if (editing) setEditState({ name: iface.name, desc: iface.desc || "", interfaceType: iface.interfaceType || "", requirements: [...(iface.requirements || [])], owner: iface.owner || "" });
+    else { setEditState(null); setReqDropOpen(false); }
+  }, [editing, iface]);
+  useEffect(() => { const h = (e) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
+  useEffect(() => {
+    if (!reqDropOpen) return;
+    const handler = (e) => { if (reqDropRef.current && !reqDropRef.current.contains(e.target)) setReqDropOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [reqDropOpen]);
+
+  const srcSys = allSystems[iface.source], tgtSys = allSystems[iface.target];
+  const sysColor = (id) => allSystems[id]?.color || "#94a3b8";
+  const is = { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12.5, background: "#f8fafc", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
+  const labelSt = { display: "block", marginBottom: 4, fontSize: 10.5, fontWeight: 600, color: "#94a3b8", letterSpacing: "0.4px", textTransform: "uppercase" };
+  const sectionSt = { marginBottom: 18 };
+  const typeColors = { Electrical: { bg: "#fef3c7", fg: "#92400e" }, Mechanical: { bg: "#dcfce7", fg: "#166534" }, Signal: { bg: "#fce7f3", fg: "#9d174d" }, Data: { bg: "#e0e7ff", fg: "#3730a3" } };
+
+  return <>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.08)" }} />
+    <div style={{ position: "fixed", top: 46, right: 0, bottom: 0, width: 420, background: "#fff", zIndex: 1000, boxShadow: "-4px 0 24px rgba(0,0,0,0.1)", borderLeft: "1px solid #e2e8f0", transform: vis ? "translateX(0)" : "translateX(100%)", transition: "transform 0.25s ease-out", display: "flex", flexDirection: "column", fontFamily: "'DM Sans',sans-serif" }}>
+      <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Interface Details</h3>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>{iface.id}</span>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {editing
+            ? <button onClick={() => onEdit(false)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: 11.5, fontWeight: 600, cursor: "pointer", color: "#64748b" }}>Cancel</button>
+            : <button onClick={() => onEdit(true)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #bfdbfe", background: "#eff6ff", fontSize: 11.5, fontWeight: 600, cursor: "pointer", color: "#2563eb" }}>Edit</button>}
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
+        <div style={sectionSt}>
+          <label style={labelSt}>Name</label>
+          {editing ? <input value={editState.name} onChange={e => setEditState(p => ({ ...p, name: e.target.value }))} style={is} />
+            : <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}>{iface.name}</div>}
+        </div>
+        <div style={{ display: "flex", gap: 12, ...sectionSt }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelSt}>Source</label>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.source) + "15", border: `1px solid ${sysColor(iface.source)}40`, padding: "5px 12px", borderRadius: 12, fontSize: 12.5, fontWeight: 500, color: "#334155" }}>{srcSys?.name || iface.source}</span>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelSt}>Target</label>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.target) + "15", border: `1px solid ${sysColor(iface.target)}40`, padding: "5px 12px", borderRadius: 12, fontSize: 12.5, fontWeight: 500, color: "#334155" }}>{tgtSys?.name || iface.target}</span>
+          </div>
+        </div>
+        <div style={sectionSt}>
+          <label style={labelSt}>Interface Type</label>
+          {editing ? <select value={editState.interfaceType} onChange={e => setEditState(p => ({ ...p, interfaceType: e.target.value }))} style={is}>
+              <option value="">None</option><option value="Electrical">Electrical</option><option value="Mechanical">Mechanical</option><option value="Signal">Signal</option><option value="Data">Data</option>
+            </select>
+            : iface.interfaceType ? <span style={{ background: (typeColors[iface.interfaceType] || { bg: "#f1f5f9" }).bg, color: (typeColors[iface.interfaceType] || { fg: "#475569" }).fg, fontSize: 12, fontWeight: 600, padding: "4px 12px", borderRadius: 12 }}>{iface.interfaceType}</span> : <span style={{ color: "#c0c8d4", fontSize: 13 }}>—</span>}
+        </div>
+        <div style={sectionSt}>
+          <label style={labelSt}>Description</label>
+          {editing ? <textarea value={editState.desc} onChange={e => setEditState(p => ({ ...p, desc: e.target.value }))} rows={4} style={{ ...is, resize: "vertical" }} placeholder="Describe the interface..." />
+            : <div style={{ fontSize: 13, color: iface.desc ? "#475569" : "#c0c8d4", lineHeight: 1.6 }}>{iface.desc || "No description"}</div>}
+        </div>
+        <div style={sectionSt}>
+          <label style={labelSt}>Requirements</label>
+          {editing ? <div ref={reqDropRef} style={{ position: "relative" }}>
+              <div onClick={() => setReqDropOpen(!reqDropOpen)} style={{ ...is, minHeight: 38, display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", cursor: "pointer", padding: "6px 11px" }}>
+                {editState.requirements.length === 0 && <span style={{ color: "#94a3b8", fontSize: 12 }}>Select requirements...</span>}
+                {editState.requirements.map(rId => {
+                  const r = allRequirements.find(x => x.id === rId);
+                  return <span key={rId} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#2563eb", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, border: "1px solid #bfdbfe" }}>
+                    {r ? `${r.id} ${r.label}` : rId}
+                    <span onClick={e => { e.stopPropagation(); setEditState(p => ({ ...p, requirements: p.requirements.filter(x => x !== rId) })); }} style={{ cursor: "pointer", fontSize: 13, lineHeight: 1, color: "#6b9cf7" }}>×</span>
+                  </span>;
+                })}
+              </div>
+              {reqDropOpen && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10, maxHeight: 180, overflowY: "auto", marginTop: 4 }}>
+                {allRequirements.filter(r => !editState.requirements.includes(r.id)).map(r =>
+                  <div key={r.id} onClick={() => setEditState(p => ({ ...p, requirements: [...p.requirements, r.id] }))} style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 6, alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                    <span style={{ fontWeight: 600, color: "#334155" }}>{r.id}</span><span style={{ color: "#64748b" }}>{r.label}</span>
+                  </div>
+                )}
+                <div style={{ padding: "8px 12px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 6, alignItems: "center" }}>
+                  <input value={newReqText} onChange={e => setNewReqText(e.target.value)} placeholder="New requirement..." onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter" && newReqText.trim()) { const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setEditState(p => ({ ...p, requirements: [...p.requirements, newId] })); setNewReqText(""); } }} style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 11.5, outline: "none" }} />
+                  <button onClick={e => { e.stopPropagation(); if (!newReqText.trim()) return; const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setEditState(p => ({ ...p, requirements: [...p.requirements, newId] })); setNewReqText(""); }} style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>+ Add</button>
+                </div>
+              </div>}
+            </div>
+            : (iface.requirements || []).length > 0 ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {(iface.requirements || []).map(rId => {
+                const r = allRequirements.find(x => x.id === rId);
+                return <span key={rId} style={{ display: "inline-block", background: "#dbeafe", color: "#1e40af", fontSize: 11.5, fontWeight: 600, padding: "4px 10px", borderRadius: 10 }}>{r ? `${r.id} ${r.label}` : rId}</span>;
+              })}
+            </div> : <span style={{ color: "#c0c8d4", fontSize: 13 }}>—</span>}
+        </div>
+        <div style={sectionSt}>
+          <label style={labelSt}>Owner</label>
+          {editing ? <input value={editState.owner} onChange={e => setEditState(p => ({ ...p, owner: e.target.value }))} style={is} placeholder="Assign owner..." />
+            : <div style={{ fontSize: 13, color: iface.owner ? "#475569" : "#c0c8d4" }}>{iface.owner || "Unassigned"}</div>}
+        </div>
+        <div style={{ display: "flex", gap: 12 }}>
+          <div style={{ flex: 1 }}>
+            <label style={labelSt}>Date Created</label>
+            <div style={{ fontSize: 12.5, color: "#475569" }}>{iface.dateCreated || "—"}</div>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={labelSt}>Last Updated</label>
+            <div style={{ fontSize: 12.5, color: "#475569" }}>{iface.dateLastUpdated || "—"}</div>
+          </div>
+        </div>
+      </div>
+      {editing && <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", flexShrink: 0 }}>
+        <button onClick={() => onSave(editState)} style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save Changes</button>
+      </div>}
+    </div>
+  </>;
+}
+
 function TableView({ ifaces, allSystems, allRequirements }) {
   const [sortCol, setSortCol] = useState("dateCreated");
   const [sortDir, setSortDir] = useState("desc");
@@ -316,6 +460,7 @@ function TableView({ ifaces, allSystems, allRequirements }) {
   const sysColor = (id) => allSystems[id]?.color || "#94a3b8";
 
   return <div style={{ flex: 1, overflow: "auto", background: "#fff" }}>
+    <div style={{ padding: "10px 16px", fontSize: 11.5, color: "#64748b", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", fontWeight: 500 }}>Showing {ifaces.length} interface{ifaces.length !== 1 ? "s" : ""}</div>
     <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>
       <thead>
         <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
@@ -377,12 +522,21 @@ export default function SERMTool() {
   const [pillDragStart, setPillDragStart] = useState(null);
   const [viewSize, setViewSize] = useState({ w: 900, h: 600 });
   const [viewStates, setViewStates] = useState({});
+  const [dotOverrides, setDotOverrides] = useState({});
+  const [draggingDot, setDraggingDot] = useState(null);
+  const [detailId, setDetailId] = useState(null);
+  const [detailEditing, setDetailEditing] = useState(false);
 
   const panRef = useRef({}); const dragRef = useRef({}); const svgRef = useRef(null); const canvasRef = useRef(null);
+  const zoomRef = useRef(zoom); zoomRef.current = zoom;
+  const panValRef = useRef(pan); panValRef.current = pan;
   const dragOffsetsRef = useRef(dragOffsets); dragOffsetsRef.current = dragOffsets;
   const pillOffsetsRef = useRef(pillOffsets); pillOffsetsRef.current = pillOffsets;
   const focusIdRef = useRef(focusId); focusIdRef.current = focusId;
   const viewStatesRef = useRef(viewStates); viewStatesRef.current = viewStates;
+  const dotOverridesRef = useRef(dotOverrides); dotOverridesRef.current = dotOverrides;
+  const initialCentered = useRef(false);
+  const [centerTrigger, setCenterTrigger] = useState(0);
   const parentMap = useMemo(() => buildParentMap(hierarchy, null), []);
 
   useEffect(() => { if (!canvasRef.current) return; const ro = new ResizeObserver(e => { for (const en of e) setViewSize({ w: en.contentRect.width, h: en.contentRect.height }); }); ro.observe(canvasRef.current); return () => ro.disconnect(); }, []);
@@ -417,7 +571,24 @@ export default function SERMTool() {
     return v;
   }, [positioned, expanded, parentMap, focusIds]);
 
-  const dotAssign = useMemo(() => assignDots(ifaces, visible), [ifaces, visible]);
+  // Center content in viewport on load and focus change
+  const lastCenterTrigger = useRef(0);
+  useEffect(() => {
+    const triggerChanged = centerTrigger !== lastCenterTrigger.current;
+    if (initialCentered.current && !triggerChanged) return;
+    if (viewSize.w <= 0 || viewSize.h <= 0) return;
+    const blocks = Object.values(visible);
+    if (blocks.length === 0) return;
+    let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity;
+    for (const b of blocks) { mnX = Math.min(mnX, b.x); mnY = Math.min(mnY, b.y); mxX = Math.max(mxX, b.x + b.w); mxY = Math.max(mxY, b.y + b.h); }
+    const contentCX = (mnX + mxX) / 2, contentCY = (mnY + mxY) / 2;
+    const z = zoomRef.current;
+    setPan({ x: viewSize.w / 2 - contentCX * z, y: viewSize.h / 2 - contentCY * z });
+    initialCentered.current = true;
+    lastCenterTrigger.current = centerTrigger;
+  }, [visible, viewSize, centerTrigger]);
+
+  const dotAssign = useMemo(() => assignDots(ifaces, visible, dotOverrides), [ifaces, visible, dotOverrides]);
   const prevDotsRef = useRef(dotAssign);
   const animFrameRef = useRef(null);
   const [animDots, setAnimDots] = useState(dotAssign);
@@ -470,20 +641,32 @@ export default function SERMTool() {
   const handleDotDown = useCallback((e, sysId, cx, cy) => { e.stopPropagation(); e.preventDefault(); const r = svgRef.current.getBoundingClientRect(); setConnecting({ sourceId: sysId, startX: cx, startY: cy, currentX: (e.clientX - r.left - pan.x) / zoom, currentY: (e.clientY - r.top - pan.y) / zoom }); }, [pan, zoom]);
   const handlePillDown = useCallback((e, ifId) => { e.stopPropagation(); setDraggingPill(ifId); setPillDragStart({ x: e.clientX, y: e.clientY, off: pillOffsets[ifId] || { dx: 0, dy: 0 } }); }, [pillOffsets]);
 
-  // Zoom to cursor
-  const handleWheel = useCallback((e) => {
-    e.preventDefault();
-    const r = svgRef.current.getBoundingClientRect();
-    const cx = e.clientX - r.left, cy = e.clientY - r.top;
-    const delta = -e.deltaY * 0.001;
-    const newZoom = Math.max(0.15, Math.min(3, zoom + delta));
-    const ratio = newZoom / zoom;
-    // Adjust pan so the point under cursor stays fixed
-    const newPanX = cx - (cx - pan.x) * ratio;
-    const newPanY = cy - (cy - pan.y) * ratio;
-    setZoom(newZoom);
-    setPan({ x: newPanX, y: newPanY });
-  }, [zoom, pan]);
+  // Native wheel listener on canvas (passive: false) to prevent browser pinch-zoom
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const handler = (e) => {
+      e.preventDefault();
+      const r = svgRef.current.getBoundingClientRect();
+      const cx = e.clientX - r.left, cy = e.clientY - r.top;
+      const delta = -e.deltaY * 0.001;
+      const z = zoomRef.current, p = panValRef.current;
+      const newZoom = Math.max(0.15, Math.min(3, z + delta));
+      const ratio = newZoom / z;
+      setZoom(newZoom);
+      setPan({ x: cx - (cx - p.x) * ratio, y: cy - (cy - p.y) * ratio });
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  }, []);
+
+  // Prevent Safari trackpad pinch gestures on the whole page
+  useEffect(() => {
+    const prevent = (e) => e.preventDefault();
+    document.addEventListener("gesturestart", prevent, { passive: false });
+    document.addEventListener("gesturechange", prevent, { passive: false });
+    return () => { document.removeEventListener("gesturestart", prevent); document.removeEventListener("gesturechange", prevent); };
+  }, []);
 
   useEffect(() => {
     const onMove = (e) => {
@@ -499,10 +682,26 @@ export default function SERMTool() {
         const sdy = Math.round((pillDragStart.off.dy + dy) / 28) * 28;
         setPillOffsets(prev => ({ ...prev, [draggingPill]: { dx: sdx, dy: sdy } }));
       }
+      if (draggingDot) {
+        const r = svgRef.current.getBoundingClientRect();
+        const mx = (e.clientX - r.left - pan.x) / zoom, my = (e.clientY - r.top - pan.y) / zoom;
+        const block = visible[draggingDot.blockId];
+        if (block) {
+          const allDots = getDots(block);
+          let nearest = null, minDist = Infinity;
+          for (const dot of allDots) { const dist = Math.hypot(dot.cx - mx, dot.cy - my); if (dist < minDist) { minDist = dist; nearest = dot; } }
+          if (nearest) setDraggingDot(prev => ({ ...prev, snapDotId: nearest.id }));
+        }
+      }
       if (panning) setPan({ x: panRef.current.px + e.clientX - panRef.current.x, y: panRef.current.py + e.clientY - panRef.current.y });
       if (connecting) { const r = svgRef.current.getBoundingClientRect(); setConnecting(p => ({ ...p, currentX: (e.clientX - r.left - pan.x) / zoom, currentY: (e.clientY - r.top - pan.y) / zoom })); }
     };
     const onUp = (e) => {
+      if (draggingDot) {
+        const key = `${draggingDot.ifaceId}_${draggingDot.role}`;
+        setDotOverrides(prev => ({ ...prev, [key]: draggingDot.snapDotId }));
+        setDraggingDot(null);
+      }
       if (connecting) {
         const r = svgRef.current.getBoundingClientRect(); const mx = (e.clientX - r.left - pan.x) / zoom, my = (e.clientY - r.top - pan.y) / zoom;
         let tid = null;
@@ -514,26 +713,33 @@ export default function SERMTool() {
     };
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, [dragging, panning, connecting, draggingPill, pillDragStart, zoom, pan, visible]);
+  }, [dragging, panning, connecting, draggingPill, pillDragStart, draggingDot, zoom, pan, visible]);
 
   const handleCreate = (src, tgt, name, desc, requirements) => {
     const mx = Math.max(0, ...ifaces.map(i => parseInt(i.id.split("-")[1]) || 0));
     const nid = `INT-${mx + 1}`;
     const now = new Date().toISOString().split("T")[0];
     setIfaces(p => [...p, { id: nid, source: src, target: tgt, name, desc: desc || "", interfaceType: "", requirements: requirements || [], dateCreated: now, dateLastUpdated: now }]);
-    setModal(null); setSelId(nid);
+    setModal(null); setSelId(nid); setDetailId(null);
     // Auto expand sidebar for new interface
     setSbExp(p => { const n = new Set(p); n.add(src); n.add(tgt); getAncestorIds(src, parentMap).forEach(a => n.add(a)); getAncestorIds(tgt, parentMap).forEach(a => n.add(a)); return n; });
   };
+  const handleDetailClose = useCallback(() => { setDetailId(null); setDetailEditing(false); }, []);
+  const handleDetailSave = useCallback((updates) => {
+    setIfaces(prev => prev.map(i => i.id === detailId ? { ...i, name: updates.name, desc: updates.desc, interfaceType: updates.interfaceType, requirements: updates.requirements, owner: updates.owner, dateLastUpdated: new Date().toISOString().split("T")[0] } : i));
+    setDetailEditing(false);
+  }, [detailId]);
   const togSb = useCallback((id) => { setSbExp(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }, []);
   const focusSys = useCallback((id) => {
     const currentKey = focusIdRef.current || "__all__";
-    setViewStates(prev => ({ ...prev, [currentKey]: { dragOffsets: dragOffsetsRef.current, pillOffsets: pillOffsetsRef.current } }));
+    setViewStates(prev => ({ ...prev, [currentKey]: { dragOffsets: dragOffsetsRef.current, pillOffsets: pillOffsetsRef.current, dotOverrides: dotOverridesRef.current } }));
     const targetKey = id || "__all__";
     const saved = viewStatesRef.current[targetKey];
     setDragOffsets(saved ? saved.dragOffsets : {});
     setPillOffsets(saved ? saved.pillOffsets : {});
+    setDotOverrides(saved ? saved.dotOverrides || {} : {});
     setFocusId(id); setRevealed(new Set());
+    setCenterTrigger(c => c + 1);
   }, []);
 
   const containers = Object.values(visible).filter(s => s.expanded && s.hasChildren).sort((a, b) => getAncestorIds(a.id, parentMap).length - getAncestorIds(b.id, parentMap).length);
@@ -567,7 +773,7 @@ export default function SERMTool() {
         {/* Sidebar */}
         <div style={{ width: 284, background: "#fff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0 }}>
           <div style={{ padding: "12px 12px 0" }}>
-            <button onClick={() => setModal({ mode: "full" })} style={{ width: "100%", padding: "9px 0", borderRadius: 7, border: "none", background: "linear-gradient(135deg,#2563eb,#3b82f6)", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer", marginBottom: 10, boxShadow: "0 2px 6px rgba(37,99,235,0.25)" }}>+ New Interface</button>
+            <button onClick={() => { setModal({ mode: "full" }); setDetailId(null); }} style={{ width: "100%", padding: "9px 0", borderRadius: 7, border: "none", background: "linear-gradient(135deg,#2563eb,#3b82f6)", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer", marginBottom: 10, boxShadow: "0 2px 6px rgba(37,99,235,0.25)" }}>+ New Interface</button>
             {breadcrumb && <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "4px 4px 8px", flexWrap: "wrap" }}>
               {breadcrumb.map((b, i) => <span key={i} style={{ display: "flex", alignItems: "center", gap: 2 }}>
                 {i > 0 && <span style={{ fontSize: 9, color: "#c0c8d4" }}>›</span>}
@@ -581,7 +787,7 @@ export default function SERMTool() {
         </div>
         {/* Canvas */}
         {viewMode === "table" && <TableView ifaces={ifaces} allSystems={positioned} allRequirements={allRequirements} />}
-        <div ref={canvasRef} style={{ flex: 1, position: "relative", overflow: "hidden", display: viewMode === "architecture" ? undefined : "none" }}>
+        <div ref={canvasRef} style={{ flex: 1, position: "relative", overflow: "hidden", touchAction: "none", display: viewMode === "architecture" ? undefined : "none" }}>
           <div style={{ position: "absolute", top: 14, left: 18, zIndex: 10, fontSize: 15, fontWeight: 700, color: "#0f172a", background: "rgba(241,245,249,0.92)", padding: "5px 12px", borderRadius: 7, backdropFilter: "blur(8px)" }}>Architecture View{focusId && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}> (focused)</span>}</div>
           <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 10, display: "flex", alignItems: "center", gap: 2, background: "#fff", borderRadius: 7, boxShadow: "0 1px 6px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0" }}>
             <button onClick={() => { const r = svgRef.current.getBoundingClientRect(); const cx = r.width / 2, cy = r.height / 2; const nz = Math.min(3, zoom + 0.15); const ratio = nz / zoom; setPan({ x: cx - (cx - pan.x) * ratio, y: cy - (cy - pan.y) * ratio }); setZoom(nz); }} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 15, color: "#475569" }}>+</button>
@@ -592,7 +798,7 @@ export default function SERMTool() {
           </div>
           <MiniMap blocks={visible} pan={pan} zoom={zoom} vw={viewSize.w} vh={viewSize.h} />
           <div style={{ position: "absolute", bottom: 16, left: 18, zIndex: 10, fontSize: 10, color: "#94a3b8", background: "rgba(255,255,255,0.9)", padding: "3px 9px", borderRadius: 5, border: "1px solid #e8ebef" }}>Double-click expand/collapse · Drag dots to connect · Drag pills to reposition</div>
-          <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} onWheel={handleWheel} style={{ background: "#f1f5f9", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
+          <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} style={{ background: "#f1f5f9", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
             <defs>
               <filter id="bs" x="-4%" y="-4%" width="108%" height="116%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodOpacity="0.05" /></filter>
               <pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform={`translate(${pan.x},${pan.y}) scale(${zoom})`}><circle cx="1" cy="1" r="0.5" fill="#c0c8d4" opacity="0.3" /></pattern>
@@ -617,7 +823,7 @@ export default function SERMTool() {
                   <path d={elbowPath(pcx, pcy, da.t.cx, da.t.cy)} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
                   <path d={elbowPath(da.s.cx, da.s.cy, pcx, pcy)} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
                   <path d={elbowPath(pcx, pcy, da.t.cx, da.t.cy)} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
-                  <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} />
+                  <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { const nid = selId === iface.id ? null : iface.id; setSelId(nid); setSelBlockId(null); setDetailId(nid); setDetailEditing(false); }} />
                   <text x={pcx} y={pcy + 3.5} textAnchor="middle" fontSize={10} fontFamily="'DM Sans',sans-serif" fontWeight={isAct ? 600 : 500} fill={isAct ? "#fff" : "#64748b"} style={{ pointerEvents: "none" }}>{iface.name}</text>
                 </g>;
               })}
@@ -648,16 +854,30 @@ export default function SERMTool() {
                   {isC && <text x={sys.x + sys.w - 32} y={sys.y + sys.h / 2 + 4} fontSize={11} fill="#f59e0b" fontWeight={700}>▸</text>}
                   <rect x={sys.x + sys.w - 28} y={sys.y + (sys.h - 19) / 2} width={20} height={19} rx={9.5} fill={sys.reqs > 0 ? "#eff6ff" : "#f8fafc"} stroke={sys.reqs > 0 ? "#bfdbfe" : "#e8ebef"} strokeWidth={0.8} />
                   <text x={sys.x + sys.w - 18} y={sys.y + sys.h / 2 + 4} textAnchor="middle" fontSize={10} fontWeight={600} fill={sys.reqs > 0 ? "#2563eb" : "#b0b8c4"}>{sys.reqs}</text>
-                  {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
+                  {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
+                    e.stopPropagation(); e.preventDefault();
+                    const ifaceObj = ifaces.find(iface => iface.id === d.ifaceId);
+                    if (ifaceObj) setDraggingDot({ ifaceId: d.ifaceId, role: ifaceObj.source === sys.id ? "source" : "target", blockId: sys.id, currentDotId: d.id, snapDotId: d.id });
+                  }} />)}
                   {isH && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
                 </g>;
               })}
               {connecting && <path d={elbowPath(connecting.startX, connecting.startY, connecting.currentX, connecting.currentY)} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 3" />}
+              {draggingDot && visible[draggingDot.blockId] && (() => {
+                const block = visible[draggingDot.blockId];
+                const allDots = getDots(block);
+                const snapDot = allDots.find(d => d.id === draggingDot.snapDotId);
+                if (!snapDot) return null;
+                return <>
+                  {allDots.map(d => <circle key={"snap" + d.id} cx={d.cx} cy={d.cy} r={4} fill={d.id === draggingDot.snapDotId ? "#2563eb40" : "#e2e8f040"} stroke={d.id === draggingDot.snapDotId ? "#2563eb" : "#cbd5e1"} strokeWidth={d.id === draggingDot.snapDotId ? 2 : 1} />)}
+                </>;
+              })()}
             </g>
           </svg>
         </div>
       </div>
       {modal && <InterfaceModal mode={modal.mode} sourceId={modal.sourceId} targetId={modal.targetId} allSystems={positioned} allRequirements={allRequirements} onClose={() => setModal(null)} onCreate={handleCreate} onAddReq={r => setAllRequirements(p => [...p, r])} />}
+      {detailId && (() => { const iface = ifaces.find(i => i.id === detailId); if (!iface) return null; return <DetailPanel iface={iface} allSystems={positioned} allRequirements={allRequirements} editing={detailEditing} onEdit={setDetailEditing} onSave={handleDetailSave} onClose={handleDetailClose} onAddReq={r => setAllRequirements(p => [...p, r])} />; })()}
     </div>
   );
 }
