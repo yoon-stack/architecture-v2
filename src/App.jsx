@@ -147,15 +147,23 @@ const CubeIcon = ({ x, y, size, color }) => {
   </g>;
 };
 
+const initRequirements = [
+  { id: "REQ-62", label: "First stage thermal" },
+  { id: "REQ-67", label: "Baseline structural" },
+  { id: "REQ-78", label: "Avionics comms" },
+  { id: "REQ-101", label: "Navigation accuracy" },
+  { id: "REQ-110", label: "Propulsion safety" },
+];
+
 const initIfaces = [
-  { id: "INT-1", source: "stage-1", target: "ground-station", name: "Stage 1 → Ground Stn", desc: "" },
-  { id: "INT-2", source: "ground-station", target: "stage-2", name: "Ground Stn → Stage 2", desc: "" },
-  { id: "INT-3", source: "s1-avionics", target: "s1-propulsion", name: "Avionics → Propulsion", desc: "" },
-  { id: "INT-5", source: "example", target: "stage-2", name: "Example → Stage 2", desc: "" },
-  { id: "INT-24", source: "stage-1", target: "stage-2", name: "Stage 1 → Stage 2", desc: "" },
-  { id: "INT-25", source: "stage-2", target: "stage-1", name: "Stage 2 → Stage 1", desc: "" },
-  { id: "INT-30", source: "s1-avionics", target: "s2-avionics", name: "S1 Avio → S2 Avio", desc: "" },
-  { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "" },
+  { id: "INT-1", source: "stage-1", target: "ground-station", name: "Stage 1 → Ground Stn", desc: "", interfaceType: "", requirements: [], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10" },
+  { id: "INT-2", source: "ground-station", target: "stage-2", name: "Ground Stn → Stage 2", desc: "", interfaceType: "", requirements: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14" },
+  { id: "INT-3", source: "s1-avionics", target: "s1-propulsion", name: "Avionics → Propulsion", desc: "", interfaceType: "Mechanical", requirements: [], dateCreated: "2025-05-12", dateLastUpdated: "2025-08-10" },
+  { id: "INT-5", source: "example", target: "stage-2", name: "Example → Stage 2", desc: "", interfaceType: "", requirements: [], dateCreated: "2024-12-02", dateLastUpdated: "2025-08-10" },
+  { id: "INT-24", source: "stage-1", target: "stage-2", name: "Stage 1 → Stage 2", desc: "", interfaceType: "", requirements: ["REQ-78"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10" },
+  { id: "INT-25", source: "stage-2", target: "stage-1", name: "Stage 2 → Stage 1", desc: "", interfaceType: "", requirements: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14" },
+  { id: "INT-30", source: "s1-avionics", target: "s2-avionics", name: "S1 Avio → S2 Avio", desc: "", interfaceType: "Signal", requirements: [], dateCreated: "2025-05-28", dateLastUpdated: "2025-05-28" },
+  { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "", interfaceType: "", requirements: ["REQ-67"], dateCreated: "2025-02-19", dateLastUpdated: "2025-05-18" },
 ];
 
 function MiniMap({ blocks, pan, zoom, vw, vh }) {
@@ -202,17 +210,27 @@ function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, 
   });
 }
 
-function InterfaceModal({ mode, sourceId, targetId, allSystems, onClose, onCreate }) {
+function InterfaceModal({ mode, sourceId, targetId, allSystems, allRequirements, onClose, onCreate, onAddReq }) {
   const [src, setSrc] = useState(sourceId || "");
   const [tgt, setTgt] = useState(targetId || "");
   const [nm, setNm] = useState("");
   const [desc, setDesc] = useState("");
+  const [selReqs, setSelReqs] = useState([]);
+  const [reqDropOpen, setReqDropOpen] = useState(false);
+  const [newReqText, setNewReqText] = useState("");
+  const reqDropRef = useRef(null);
   const opts = Object.values(allSystems).filter(s => !s.expanded || !s.hasChildren);
   useEffect(() => { if (src && tgt) setNm(`${allSystems[src]?.name || src} → ${allSystems[tgt]?.name || tgt}`); }, [src, tgt, allSystems]);
+  useEffect(() => {
+    if (!reqDropOpen) return;
+    const handler = (e) => { if (reqDropRef.current && !reqDropRef.current.contains(e.target)) setReqDropOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [reqDropOpen]);
   const is = { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12.5, background: "#f8fafc", outline: "none", boxSizing: "border-box" };
   const canCreate = src && tgt && nm.trim();
   return <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
-    <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 440, boxShadow: "0 20px 40px rgba(0,0,0,0.15)", fontFamily: "'DM Sans',sans-serif" }}>
+    <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 440, boxShadow: "0 20px 40px rgba(0,0,0,0.15)", fontFamily: "'DM Sans',sans-serif", maxHeight: "85vh", overflowY: "auto" }}>
       <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700 }}>New Interface</h3>
       {mode === "quick" && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>From: <strong>{allSystems[src]?.name || src}</strong></p>}
       {mode === "drag" && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}><strong>{allSystems[src]?.name}</strong> → <strong>{allSystems[tgt]?.name}</strong></p>}
@@ -230,21 +248,118 @@ function InterfaceModal({ mode, sourceId, targetId, allSystems, onClose, onCreat
         <input value={nm} onChange={e => setNm(e.target.value)} style={{ ...is, marginBottom: 14 }} />
         <label style={{ display: "block", marginBottom: 5, fontSize: 11.5, fontWeight: 600, color: "#475569" }}>Description</label>
         <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={3} style={{ ...is, marginBottom: 14, resize: "vertical", fontFamily: "inherit" }} placeholder="Describe the interface purpose, data flows, constraints..." />
+        <label style={{ display: "block", marginBottom: 5, fontSize: 11.5, fontWeight: 600, color: "#475569" }}>Requirements</label>
+        <div ref={reqDropRef} style={{ position: "relative", marginBottom: 14 }}>
+          <div onClick={() => setReqDropOpen(!reqDropOpen)} style={{ ...is, minHeight: 38, display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", cursor: "pointer", padding: "6px 11px" }}>
+            {selReqs.length === 0 && <span style={{ color: "#94a3b8", fontSize: 12 }}>Select requirements...</span>}
+            {selReqs.map(rId => {
+              const r = allRequirements.find(x => x.id === rId);
+              return <span key={rId} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#2563eb", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, border: "1px solid #bfdbfe" }}>
+                {r ? `${r.id} ${r.label}` : rId}
+                <span onClick={e => { e.stopPropagation(); setSelReqs(p => p.filter(x => x !== rId)); }} style={{ cursor: "pointer", fontSize: 13, lineHeight: 1, color: "#6b9cf7" }}>×</span>
+              </span>;
+            })}
+          </div>
+          {reqDropOpen && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10, maxHeight: 180, overflowY: "auto", marginTop: 4 }}>
+            {allRequirements.filter(r => !selReqs.includes(r.id)).map(r =>
+              <div key={r.id} onClick={() => { setSelReqs(p => [...p, r.id]); }} style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 6, alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                <span style={{ fontWeight: 600, color: "#334155" }}>{r.id}</span>
+                <span style={{ color: "#64748b" }}>{r.label}</span>
+              </div>
+            )}
+            <div style={{ padding: "8px 12px", borderTop: allRequirements.length > 0 ? "1px solid #e2e8f0" : "none", display: "flex", gap: 6, alignItems: "center" }}>
+              <input value={newReqText} onChange={e => setNewReqText(e.target.value)} placeholder="New requirement..." onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter" && newReqText.trim()) { const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setSelReqs(p => [...p, newId]); setNewReqText(""); } }} style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 11.5, outline: "none" }} />
+              <button onClick={e => { e.stopPropagation(); if (!newReqText.trim()) return; const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setSelReqs(p => [...p, newId]); setNewReqText(""); }} style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>+ Add</button>
+            </div>
+          </div>}
+        </div>
       </>}
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 4 }}>
         <button onClick={onClose} style={{ padding: "9px 18px", borderRadius: 8, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer", color: "#475569" }}>Cancel</button>
-        {(canCreate || (mode === "drag" && nm.trim())) && <button onClick={() => onCreate(src, tgt, nm.trim(), desc)} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Create Interface</button>}
+        {(canCreate || (mode === "drag" && nm.trim())) && <button onClick={() => onCreate(src, tgt, nm.trim(), desc, selReqs)} style={{ padding: "9px 18px", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>Create Interface</button>}
       </div>
     </div>
+  </div>;
+}
+
+function TableView({ ifaces, allSystems, allRequirements }) {
+  const [sortCol, setSortCol] = useState("dateCreated");
+  const [sortDir, setSortDir] = useState("desc");
+  const columns = [
+    { key: "name", label: "NAME" },
+    { key: "id", label: "ID" },
+    { key: "interfaceType", label: "INTERFACE TYPE" },
+    { key: "source", label: "SOURCE SYSTEM" },
+    { key: "target", label: "TARGET SYSTEMS" },
+    { key: "requirements", label: "REQUIREMENTS" },
+    { key: "dateCreated", label: "DATE CREATED" },
+    { key: "dateLastUpdated", label: "DATE LAST UPD." },
+  ];
+  const toggleSort = (col) => { if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc"); else { setSortCol(col); setSortDir("asc"); } };
+  const sorted = useMemo(() => {
+    const list = [...ifaces];
+    if (!sortCol) return list;
+    list.sort((a, b) => {
+      let va, vb;
+      if (sortCol === "source") { va = allSystems[a.source]?.name || a.source; vb = allSystems[b.source]?.name || b.source; }
+      else if (sortCol === "target") { va = allSystems[a.target]?.name || a.target; vb = allSystems[b.target]?.name || b.target; }
+      else if (sortCol === "requirements") { va = (a.requirements || []).length; vb = (b.requirements || []).length; }
+      else { va = a[sortCol] || ""; vb = b[sortCol] || ""; }
+      const cmp = typeof va === "number" ? va - vb : String(va).localeCompare(String(vb));
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [ifaces, sortCol, sortDir, allSystems]);
+
+  const formatDate = (d) => { if (!d) return "\u2014"; const dt = new Date(d); const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()}`; };
+
+  const sysColor = (id) => allSystems[id]?.color || "#94a3b8";
+
+  return <div style={{ flex: 1, overflow: "auto", background: "#fff" }}>
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>
+      <thead>
+        <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
+          {columns.map(col => <th key={col.key} onClick={() => toggleSort(col.key)} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, color: "#64748b", letterSpacing: "0.5px", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
+            {col.label} {sortCol === col.key ? <span style={{ color: "#2563eb" }}>{sortDir === "desc" ? "▼" : "▲"}</span> : <span style={{ color: "#d0d5dd" }}>⇅</span>}
+          </th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map(iface => <tr key={iface.id} style={{ borderBottom: "1px solid #f1f5f9" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+          <td style={{ padding: "14px 16px", fontWeight: 600, color: "#1e293b", maxWidth: 220 }}>{iface.name}</td>
+          <td style={{ padding: "14px 16px", color: "#64748b" }}>{iface.id}</td>
+          <td style={{ padding: "14px 16px" }}>
+            {iface.interfaceType ? <span style={{ background: iface.interfaceType === "Electrical" ? "#fef3c7" : iface.interfaceType === "Mechanical" ? "#dcfce7" : iface.interfaceType === "Signal" ? "#fce7f3" : "#f1f5f9", color: iface.interfaceType === "Electrical" ? "#92400e" : iface.interfaceType === "Mechanical" ? "#166534" : iface.interfaceType === "Signal" ? "#9d174d" : "#475569", fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 12 }}>{iface.interfaceType}</span> : <span style={{ color: "#c0c8d4" }}>&mdash;</span>}
+          </td>
+          <td style={{ padding: "14px 16px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.source) + "15", border: `1px solid ${sysColor(iface.source)}40`, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 500, color: "#334155" }}>{allSystems[iface.source]?.name || iface.source}</span>
+          </td>
+          <td style={{ padding: "14px 16px" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.target) + "15", border: `1px solid ${sysColor(iface.target)}40`, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 500, color: "#334155" }}>{allSystems[iface.target]?.name || iface.target}</span>
+          </td>
+          <td style={{ padding: "14px 16px" }}>
+            {(iface.requirements || []).length > 0 ? (iface.requirements || []).map(rId => {
+              const r = allRequirements.find(x => x.id === rId);
+              return <span key={rId} style={{ display: "inline-block", background: "#dbeafe", color: "#1e40af", fontSize: 11, fontWeight: 600, padding: "3px 8px", borderRadius: 10, marginRight: 4 }}>{r ? `${r.id} ${r.label}` : rId}</span>;
+            }) : <span style={{ color: "#c0c8d4" }}>&mdash;</span>}
+          </td>
+          <td style={{ padding: "14px 16px", color: "#475569", whiteSpace: "nowrap" }}>{formatDate(iface.dateCreated)}</td>
+          <td style={{ padding: "14px 16px", color: "#475569", whiteSpace: "nowrap" }}>{formatDate(iface.dateLastUpdated)}</td>
+        </tr>)}
+      </tbody>
+    </table>
   </div>;
 }
 
 export default function SERMTool() {
   const [expanded, setExpanded] = useState(new Set(["launch-vehicle"]));
   const [ifaces, setIfaces] = useState(initIfaces);
+  const [allRequirements, setAllRequirements] = useState(initRequirements);
+  const [viewMode, setViewMode] = useState("architecture");
   const [selId, setSelId] = useState(null);
   const [hovId, setHovId] = useState(null);
   const [hovBlock, setHovBlock] = useState(null);
+  const [selBlockId, setSelBlockId] = useState(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.6);
   const [dragging, setDragging] = useState(null);
@@ -261,8 +376,13 @@ export default function SERMTool() {
   const [draggingPill, setDraggingPill] = useState(null);
   const [pillDragStart, setPillDragStart] = useState(null);
   const [viewSize, setViewSize] = useState({ w: 900, h: 600 });
+  const [viewStates, setViewStates] = useState({});
 
   const panRef = useRef({}); const dragRef = useRef({}); const svgRef = useRef(null); const canvasRef = useRef(null);
+  const dragOffsetsRef = useRef(dragOffsets); dragOffsetsRef.current = dragOffsets;
+  const pillOffsetsRef = useRef(pillOffsets); pillOffsetsRef.current = pillOffsets;
+  const focusIdRef = useRef(focusId); focusIdRef.current = focusId;
+  const viewStatesRef = useRef(viewStates); viewStatesRef.current = viewStates;
   const parentMap = useMemo(() => buildParentMap(hierarchy, null), []);
 
   useEffect(() => { if (!canvasRef.current) return; const ro = new ResizeObserver(e => { for (const en of e) setViewSize({ w: en.contentRect.width, h: en.contentRect.height }); }); ro.observe(canvasRef.current); return () => ro.disconnect(); }, []);
@@ -298,16 +418,55 @@ export default function SERMTool() {
   }, [positioned, expanded, parentMap, focusIds]);
 
   const dotAssign = useMemo(() => assignDots(ifaces, visible), [ifaces, visible]);
-  const pills = useMemo(() => computePills(ifaces, visible, dotAssign, pillOffsets), [ifaces, visible, dotAssign, pillOffsets]);
+  const prevDotsRef = useRef(dotAssign);
+  const animFrameRef = useRef(null);
+  const [animDots, setAnimDots] = useState(dotAssign);
+  useEffect(() => {
+    const prev = prevDotsRef.current;
+    const next = dotAssign;
+    prevDotsRef.current = next;
+    // Check if any dots actually changed position (not just same object)
+    let changed = false;
+    for (const id of Object.keys(next)) {
+      if (!prev[id] || prev[id].s.id !== next[id].s.id || prev[id].t.id !== next[id].t.id) { changed = true; break; }
+    }
+    if (!changed) { setAnimDots(next); return; }
+    // Animate from prev to next over 200ms
+    const start = performance.now();
+    const duration = 200;
+    const animate = (now) => {
+      const t = Math.min((now - start) / duration, 1);
+      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // easeInOut
+      const interp = {};
+      for (const [id, nd] of Object.entries(next)) {
+        const pd = prev[id];
+        if (pd) {
+          interp[id] = {
+            s: { id: nd.s.id, cx: pd.s.cx + (nd.s.cx - pd.s.cx) * ease, cy: pd.s.cy + (nd.s.cy - pd.s.cy) * ease },
+            t: { id: nd.t.id, cx: pd.t.cx + (nd.t.cx - pd.t.cx) * ease, cy: pd.t.cy + (nd.t.cy - pd.t.cy) * ease },
+          };
+        } else {
+          interp[id] = nd;
+        }
+      }
+      setAnimDots(interp);
+      if (t < 1) animFrameRef.current = requestAnimationFrame(animate);
+    };
+    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    animFrameRef.current = requestAnimationFrame(animate);
+    return () => { if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current); };
+  }, [dotAssign]);
+  const pills = useMemo(() => computePills(ifaces, visible, animDots, pillOffsets), [ifaces, visible, animDots, pillOffsets]);
   const selIface = ifaces.find(i => i.id === selId);
   const relIds = selIface ? [selIface.source, selIface.target] : [];
+  const blockRelIfaceIds = useMemo(() => { if (!selBlockId) return new Set(); return new Set(ifaces.filter(i => i.source === selBlockId || i.target === selBlockId).map(i => i.id)); }, [selBlockId, ifaces]);
   const externalIfaces = useMemo(() => { if (!focusIds) return []; return ifaces.filter(i => { const s = focusIds.has(i.source), t = focusIds.has(i.target); return (s && !t) || (!s && t); }); }, [focusIds, ifaces]);
   const breadcrumb = useMemo(() => { if (!focusId) return null; const ch = [{ id: null, name: "All" }]; getAncestorIds(focusId, parentMap).reverse().forEach(a => { const n = findNode(hierarchy, a); if (n) ch.push({ id: a, name: n.name }); }); const fn = findNode(hierarchy, focusId); if (fn) ch.push({ id: focusId, name: fn.name }); return ch; }, [focusId, parentMap]);
-  const connDots = useMemo(() => { const m = {}; for (const [ifId, da] of Object.entries(dotAssign)) { const iface = ifaces.find(i => i.id === ifId); if (!iface) continue; if (!m[iface.source]) m[iface.source] = []; m[iface.source].push({ ...da.s, ifaceId: ifId }); if (!m[iface.target]) m[iface.target] = []; m[iface.target].push({ ...da.t, ifaceId: ifId }); } return m; }, [dotAssign, ifaces]);
+  const connDots = useMemo(() => { const m = {}; for (const [ifId, da] of Object.entries(animDots)) { const iface = ifaces.find(i => i.id === ifId); if (!iface) continue; if (!m[iface.source]) m[iface.source] = []; m[iface.source].push({ ...da.s, ifaceId: ifId }); if (!m[iface.target]) m[iface.target] = []; m[iface.target].push({ ...da.t, ifaceId: ifId }); } return m; }, [animDots, ifaces]);
 
   const handleBlockDown = useCallback((e, id) => { e.stopPropagation(); setDragging(id); dragRef.current = { x: e.clientX, y: e.clientY }; }, []);
   const handleDblClick = useCallback((id) => { setExpanded(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); setDragOffsets({}); setPillOffsets({}); }, []);
-  const handleCanvasDown = useCallback((e) => { if (!dragging && !connecting && !draggingPill) { setPanSt(true); panRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; } }, [pan, dragging, connecting, draggingPill]);
+  const handleCanvasDown = useCallback((e) => { if (!dragging && !connecting && !draggingPill) { setPanSt(true); panRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; setSelId(null); setSelBlockId(null); } }, [pan, dragging, connecting, draggingPill]);
   const handleDotDown = useCallback((e, sysId, cx, cy) => { e.stopPropagation(); e.preventDefault(); const r = svgRef.current.getBoundingClientRect(); setConnecting({ sourceId: sysId, startX: cx, startY: cy, currentX: (e.clientX - r.left - pan.x) / zoom, currentY: (e.clientY - r.top - pan.y) / zoom }); }, [pan, zoom]);
   const handlePillDown = useCallback((e, ifId) => { e.stopPropagation(); setDraggingPill(ifId); setPillDragStart({ x: e.clientX, y: e.clientY, off: pillOffsets[ifId] || { dx: 0, dy: 0 } }); }, [pillOffsets]);
 
@@ -357,16 +516,25 @@ export default function SERMTool() {
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   }, [dragging, panning, connecting, draggingPill, pillDragStart, zoom, pan, visible]);
 
-  const handleCreate = (src, tgt, name, desc) => {
+  const handleCreate = (src, tgt, name, desc, requirements) => {
     const mx = Math.max(0, ...ifaces.map(i => parseInt(i.id.split("-")[1]) || 0));
     const nid = `INT-${mx + 1}`;
-    setIfaces(p => [...p, { id: nid, source: src, target: tgt, name, desc: desc || "" }]);
+    const now = new Date().toISOString().split("T")[0];
+    setIfaces(p => [...p, { id: nid, source: src, target: tgt, name, desc: desc || "", interfaceType: "", requirements: requirements || [], dateCreated: now, dateLastUpdated: now }]);
     setModal(null); setSelId(nid);
     // Auto expand sidebar for new interface
     setSbExp(p => { const n = new Set(p); n.add(src); n.add(tgt); getAncestorIds(src, parentMap).forEach(a => n.add(a)); getAncestorIds(tgt, parentMap).forEach(a => n.add(a)); return n; });
   };
   const togSb = useCallback((id) => { setSbExp(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }, []);
-  const focusSys = useCallback((id) => { setFocusId(id); setRevealed(new Set()); }, []);
+  const focusSys = useCallback((id) => {
+    const currentKey = focusIdRef.current || "__all__";
+    setViewStates(prev => ({ ...prev, [currentKey]: { dragOffsets: dragOffsetsRef.current, pillOffsets: pillOffsetsRef.current } }));
+    const targetKey = id || "__all__";
+    const saved = viewStatesRef.current[targetKey];
+    setDragOffsets(saved ? saved.dragOffsets : {});
+    setPillOffsets(saved ? saved.pillOffsets : {});
+    setFocusId(id); setRevealed(new Set());
+  }, []);
 
   const containers = Object.values(visible).filter(s => s.expanded && s.hasChildren).sort((a, b) => getAncestorIds(a.id, parentMap).length - getAncestorIds(b.id, parentMap).length);
   const leaves = Object.values(visible).filter(s => !(s.expanded && s.hasChildren));
@@ -381,7 +549,19 @@ export default function SERMTool() {
           <span style={{ color: "#fff", fontSize: 14.5, fontWeight: 700 }}>SERM Tool</span>
           <span style={{ background: "#22c55e20", color: "#4ade80", fontSize: 9.5, fontWeight: 600, padding: "2px 7px", borderRadius: 10, border: "1px solid #22c55e40" }}>v1.0</span>
         </div>
-        <span style={{ color: "#94a3b8", fontSize: 12.5 }}>Project: <span style={{ color: "#fff", fontWeight: 600 }}>Launch Vehicle Program</span></span>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <span style={{ color: "#94a3b8", fontSize: 12.5 }}>Project: <span style={{ color: "#fff", fontWeight: 600 }}>Launch Vehicle Program</span></span>
+          <div style={{ display: "flex", background: "#1e293b", borderRadius: 6, padding: 2 }}>
+            <button onClick={() => setViewMode("architecture")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", fontSize: 11.5, fontWeight: 600, cursor: "pointer", background: viewMode === "architecture" ? "#3b82f6" : "transparent", color: viewMode === "architecture" ? "#fff" : "#94a3b8", transition: "all 0.15s" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 4 }}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              Architecture
+            </button>
+            <button onClick={() => setViewMode("table")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", fontSize: 11.5, fontWeight: 600, cursor: "pointer", background: viewMode === "table" ? "#3b82f6" : "transparent", color: viewMode === "table" ? "#fff" : "#94a3b8", transition: "all 0.15s" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 4 }}><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              Table
+            </button>
+          </div>
+        </div>
       </div>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Sidebar */}
@@ -391,7 +571,7 @@ export default function SERMTool() {
             {breadcrumb && <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "4px 4px 8px", flexWrap: "wrap" }}>
               {breadcrumb.map((b, i) => <span key={i} style={{ display: "flex", alignItems: "center", gap: 2 }}>
                 {i > 0 && <span style={{ fontSize: 9, color: "#c0c8d4" }}>›</span>}
-                <span onClick={() => { if (!b.id) { setFocusId(null); setRevealed(new Set()); } else focusSys(b.id); }} style={{ fontSize: 10.5, color: i === breadcrumb.length - 1 ? "#2563eb" : "#64748b", fontWeight: i === breadcrumb.length - 1 ? 700 : 500, cursor: "pointer", padding: "1px 4px", borderRadius: 3, background: i === breadcrumb.length - 1 ? "#eff6ff" : "transparent" }}>{b.name}</span>
+                <span onClick={() => { focusSys(b.id || null); }} style={{ fontSize: 10.5, color: i === breadcrumb.length - 1 ? "#2563eb" : "#64748b", fontWeight: i === breadcrumb.length - 1 ? 700 : 500, cursor: "pointer", padding: "1px 4px", borderRadius: 3, background: i === breadcrumb.length - 1 ? "#eff6ff" : "transparent" }}>{b.name}</span>
               </span>)}
             </div>}
           </div>
@@ -400,7 +580,8 @@ export default function SERMTool() {
           </div>
         </div>
         {/* Canvas */}
-        <div ref={canvasRef} style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+        {viewMode === "table" && <TableView ifaces={ifaces} allSystems={positioned} allRequirements={allRequirements} />}
+        <div ref={canvasRef} style={{ flex: 1, position: "relative", overflow: "hidden", display: viewMode === "architecture" ? undefined : "none" }}>
           <div style={{ position: "absolute", top: 14, left: 18, zIndex: 10, fontSize: 15, fontWeight: 700, color: "#0f172a", background: "rgba(241,245,249,0.92)", padding: "5px 12px", borderRadius: 7, backdropFilter: "blur(8px)" }}>Architecture View{focusId && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}> (focused)</span>}</div>
           <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 10, display: "flex", alignItems: "center", gap: 2, background: "#fff", borderRadius: 7, boxShadow: "0 1px 6px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0" }}>
             <button onClick={() => { const r = svgRef.current.getBoundingClientRect(); const cx = r.width / 2, cy = r.height / 2; const nz = Math.min(3, zoom + 0.15); const ratio = nz / zoom; setPan({ x: cx - (cx - pan.x) * ratio, y: cy - (cy - pan.y) * ratio }); setZoom(nz); }} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 15, color: "#475569" }}>+</button>
@@ -418,25 +599,25 @@ export default function SERMTool() {
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-              {containers.map(sys => <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onDoubleClick={e => { e.stopPropagation(); handleDblClick(sys.id); }} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
-                <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={10} fill={`${sys.color}06`} stroke={relIds.includes(sys.id) ? "#2563eb" : sys.color} strokeWidth={relIds.includes(sys.id) ? 2.5 : 1.5} strokeDasharray="7 3" />
+              {containers.map(sys => { const isSB = selBlockId === sys.id; return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => { e.stopPropagation(); setSelBlockId(selBlockId === sys.id ? null : sys.id); setSelId(null); }} onDoubleClick={e => { e.stopPropagation(); handleDblClick(sys.id); }} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
+                <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={10} fill={`${sys.color}06`} stroke={relIds.includes(sys.id) || isSB ? "#2563eb" : sys.color} strokeWidth={relIds.includes(sys.id) || isSB ? 2.5 : 1.5} strokeDasharray="7 3" />
                 <rect x={sys.x} y={sys.y} width={sys.w} height={HEADER_H} rx={10} fill={`${sys.color}0d`} /><rect x={sys.x} y={sys.y + HEADER_H - 8} width={sys.w} height={8} fill={`${sys.color}0d`} />
                 <CubeIcon x={sys.x + 10} y={sys.y + 10} size={18} color={sys.color} />
                 <text x={sys.x + 34} y={sys.y + 26} fontSize={13} fontFamily="'DM Sans',sans-serif" fontWeight={700} fill="#1e293b">{sys.name}</text>
                 <text x={sys.x + sys.w - 12} y={sys.y + 26} textAnchor="end" fontSize={10} fill="#94a3b8">{sys.reqs}</text>
-              </g>)}
+              </g>; })}
 
               {ifaces.map(iface => {
-                const da = dotAssign[iface.id]; const pill = pills[iface.id];
+                const da = animDots[iface.id]; const pill = pills[iface.id];
                 if (!da || !pill) return null;
                 const pcx = pill.x + pill.w / 2, pcy = pill.y + pill.h / 2;
-                const isAct = selId === iface.id || hovId === iface.id;
+                const isAct = selId === iface.id || hovId === iface.id || blockRelIfaceIds.has(iface.id);
                 return <g key={iface.id}>
-                  <path d={elbowPath(da.s.cx, da.s.cy, pcx, pcy)} fill="none" stroke="transparent" strokeWidth={14} onClick={() => setSelId(selId === iface.id ? null : iface.id)} style={{ cursor: "pointer" }} />
-                  <path d={elbowPath(pcx, pcy, da.t.cx, da.t.cy)} fill="none" stroke="transparent" strokeWidth={14} onClick={() => setSelId(selId === iface.id ? null : iface.id)} style={{ cursor: "pointer" }} />
-                  <path d={elbowPath(da.s.cx, da.s.cy, pcx, pcy)} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 2.5 : 1.2} />
-                  <path d={elbowPath(pcx, pcy, da.t.cx, da.t.cy)} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 2.5 : 1.2} />
-                  <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => setSelId(selId === iface.id ? null : iface.id)} />
+                  <path d={elbowPath(da.s.cx, da.s.cy, pcx, pcy)} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
+                  <path d={elbowPath(pcx, pcy, da.t.cx, da.t.cy)} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
+                  <path d={elbowPath(da.s.cx, da.s.cy, pcx, pcy)} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
+                  <path d={elbowPath(pcx, pcy, da.t.cx, da.t.cy)} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
+                  <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} />
                   <text x={pcx} y={pcy + 3.5} textAnchor="middle" fontSize={10} fontFamily="'DM Sans',sans-serif" fontWeight={isAct ? 600 : 500} fill={isAct ? "#fff" : "#64748b"} style={{ pointerEvents: "none" }}>{iface.name}</text>
                 </g>;
               })}
@@ -448,19 +629,20 @@ export default function SERMTool() {
                 const sx = inB.x, sy = inB.y + inB.h * 0.75, ex = sx - 50, ey = sy + 20;
                 const isH = hovStub === iface.id; const isR = revealed.has(outId);
                 return <g key={"ext" + iface.id} onMouseEnter={() => setHovStub(iface.id)} onMouseLeave={() => setHovStub(null)}>
-                  <path d={`M${sx},${sy} L${sx - 20},${sy} L${sx - 20},${ey} L${ex},${ey}`} fill="none" stroke="#b0b8c4" strokeWidth={1.2} strokeDasharray="4 3" />
-                  <circle cx={ex} cy={ey} r={4} fill="#94a3b8" stroke="#fff" strokeWidth={1.5} /><circle cx={sx} cy={sy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
+                  <path d={`M${sx},${sy} L${sx - 20},${sy} L${sx - 20},${ey} L${ex},${ey}`} fill="none" stroke="#b0b8c4" strokeWidth={2} strokeDasharray="4 3" />
+                  <circle cx={ex} cy={ey} r={10} fill="transparent" style={{ cursor: "pointer" }} onClick={e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); }} />
+                  <circle cx={ex} cy={ey} r={4} fill="#94a3b8" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: "none" }} /><circle cx={sx} cy={sy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
                   {(isH || isR) && <text x={ex - 8} y={ey + 4} textAnchor="end" fontSize={10} fontFamily="'DM Sans',sans-serif" fill="#64748b" opacity={isR ? 1 : 0.5} style={{ cursor: "pointer" }} onClick={e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); }}>{positioned[outId]?.name || outId}</text>}
                 </g>;
               })}
 
               {leaves.map(sys => {
                 const dim = selId && !relIds.includes(sys.id);
-                const isR = relIds.includes(sys.id); const isC = !sys.expanded && sys.hasChildren;
+                const isR = relIds.includes(sys.id); const isSB = selBlockId === sys.id; const isC = !sys.expanded && sys.hasChildren;
                 const isH = hovBlock === sys.id && !connecting;
                 const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id));
-                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onDoubleClick={e => { e.stopPropagation(); if (sys.hasChildren) handleDblClick(sys.id); }} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
-                  <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill="#fff" stroke={isR ? "#2563eb" : isH ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR ? 2.5 : 1} filter="url(#bs)" />
+                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => { e.stopPropagation(); setSelBlockId(selBlockId === sys.id ? null : sys.id); setSelId(null); }} onDoubleClick={e => { e.stopPropagation(); if (sys.hasChildren) handleDblClick(sys.id); }} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
+                  <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill="#fff" stroke={isR || isSB ? "#2563eb" : isH ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR || isSB ? 2.5 : 1} filter="url(#bs)" />
                   <CubeIcon x={sys.x + 10} y={sys.y + (sys.h - 17) / 2} size={17} color={sys.color} />
                   <text x={sys.x + 32} y={sys.y + sys.h / 2 + 4.5} fontSize={12.5} fontFamily="'DM Sans',sans-serif" fontWeight={600} fill="#1e293b">{sys.name.length > 17 ? sys.name.slice(0, 17) + "..." : sys.name}</text>
                   {isC && <text x={sys.x + sys.w - 32} y={sys.y + sys.h / 2 + 4} fontSize={11} fill="#f59e0b" fontWeight={700}>▸</text>}
@@ -470,12 +652,12 @@ export default function SERMTool() {
                   {isH && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
                 </g>;
               })}
-              {connecting && <line x1={connecting.startX} y1={connecting.startY} x2={connecting.currentX} y2={connecting.currentY} stroke="#2563eb" strokeWidth={2} strokeDasharray="6 3" />}
+              {connecting && <path d={elbowPath(connecting.startX, connecting.startY, connecting.currentX, connecting.currentY)} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 3" />}
             </g>
           </svg>
         </div>
       </div>
-      {modal && <InterfaceModal mode={modal.mode} sourceId={modal.sourceId} targetId={modal.targetId} allSystems={positioned} onClose={() => setModal(null)} onCreate={handleCreate} />}
+      {modal && <InterfaceModal mode={modal.mode} sourceId={modal.sourceId} targetId={modal.targetId} allSystems={positioned} allRequirements={allRequirements} onClose={() => setModal(null)} onCreate={handleCreate} onAddReq={r => setAllRequirements(p => [...p, r])} />}
     </div>
   );
 }
