@@ -307,11 +307,13 @@ function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSa
   const reqDropRef = useRef(null);
   const [reqDropOpen, setReqDropOpen] = useState(false);
   const [newReqText, setNewReqText] = useState("");
+  const [testPlanDropOpen, setTestPlanDropOpen] = useState(false);
+  const [newTestPlanText, setNewTestPlanText] = useState("");
 
   useEffect(() => { requestAnimationFrame(() => requestAnimationFrame(() => setVis(true))); }, []);
   useEffect(() => {
-    if (editing) setEditState({ name: iface.name, desc: iface.desc || "", interfaceType: iface.interfaceType || "", requirements: [...(iface.requirements || [])], owner: iface.owner || "" });
-    else { setEditState(null); setReqDropOpen(false); }
+    if (editing) setEditState({ name: iface.name, desc: iface.desc || "", interfaceType: iface.interfaceType || "", requirements: [...(iface.requirements || [])], owner: iface.owner || "", testPlans: [...(iface.testPlans || [])] });
+    else { setEditState(null); setReqDropOpen(false); setTestPlanDropOpen(false); }
   }, [editing, iface]);
   useEffect(() => { const h = (e) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
   useEffect(() => {
@@ -320,6 +322,12 @@ function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSa
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [reqDropOpen]);
+  useEffect(() => {
+    if (!testPlanDropOpen) return;
+    const handler = () => setTestPlanDropOpen(false);
+    const timer = setTimeout(() => document.addEventListener("mousedown", handler), 0);
+    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handler); };
+  }, [testPlanDropOpen]);
 
   const srcSys = allSystems[iface.source], tgtSys = allSystems[iface.target];
   const sysColor = (id) => allSystems[id]?.color || "#94a3b8";
@@ -346,7 +354,7 @@ function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSa
       <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
         <div style={sectionSt}>
           <label style={labelSt}>Name</label>
-          {editing ? <input value={editState.name} onChange={e => setEditState(p => ({ ...p, name: e.target.value }))} style={is} />
+          {editing && editState ? <input value={editState.name} onChange={e => setEditState(p => ({ ...p, name: e.target.value }))} style={is} />
             : <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}>{iface.name}</div>}
         </div>
         <div style={{ display: "flex", gap: 12, ...sectionSt }}>
@@ -361,21 +369,24 @@ function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSa
         </div>
         <div style={sectionSt}>
           <label style={labelSt}>Interface Type</label>
-          {editing ? <select value={editState.interfaceType} onChange={e => setEditState(p => ({ ...p, interfaceType: e.target.value }))} style={is}>
+          {editing && editState ? <select value={editState.interfaceType} onChange={e => setEditState(p => ({ ...p, interfaceType: e.target.value }))} style={is}>
               <option value="">None</option><option value="Electrical">Electrical</option><option value="Mechanical">Mechanical</option><option value="Signal">Signal</option><option value="Data">Data</option>
             </select>
             : iface.interfaceType ? <span style={{ background: (typeColors[iface.interfaceType] || { bg: "#f1f5f9" }).bg, color: (typeColors[iface.interfaceType] || { fg: "#475569" }).fg, fontSize: 12, fontWeight: 600, padding: "4px 12px", borderRadius: 12 }}>{iface.interfaceType}</span> : <span style={{ color: "#c0c8d4", fontSize: 13 }}>—</span>}
         </div>
         <div style={sectionSt}>
           <label style={labelSt}>Description</label>
-          {editing ? <textarea value={editState.desc} onChange={e => setEditState(p => ({ ...p, desc: e.target.value }))} rows={4} style={{ ...is, resize: "vertical" }} placeholder="Describe the interface..." />
+          {editing && editState ? <textarea value={editState.desc} onChange={e => setEditState(p => ({ ...p, desc: e.target.value }))} rows={4} style={{ ...is, resize: "vertical" }} placeholder="Describe the interface..." />
             : <div style={{ fontSize: 13, color: iface.desc ? "#475569" : "#c0c8d4", lineHeight: 1.6 }}>{iface.desc || "No description"}</div>}
         </div>
         <div style={sectionSt}>
-          <label style={labelSt}>Requirements</label>
-          {editing ? <div ref={reqDropRef} style={{ position: "relative" }}>
-              <div onClick={() => setReqDropOpen(!reqDropOpen)} style={{ ...is, minHeight: 38, display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", cursor: "pointer", padding: "6px 11px" }}>
-                {editState.requirements.length === 0 && <span style={{ color: "#94a3b8", fontSize: 12 }}>Select requirements...</span>}
+          <label style={{ ...labelSt, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>Requirements</span>
+            {editing && editState && <button onClick={() => setReqDropOpen(!reqDropOpen)} style={{ padding: "2px 8px", borderRadius: 5, border: "1px solid #bfdbfe", background: "#eff6ff", fontSize: 10, fontWeight: 600, cursor: "pointer", color: "#2563eb", textTransform: "none", letterSpacing: 0 }}>+ Add</button>}
+          </label>
+          {editing && editState ? <div ref={reqDropRef} style={{ position: "relative" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, minHeight: 28 }}>
+                {editState.requirements.length === 0 && <span style={{ color: "#94a3b8", fontSize: 12 }}>No requirements linked</span>}
                 {editState.requirements.map(rId => {
                   const r = allRequirements.find(x => x.id === rId);
                   return <span key={rId} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#2563eb", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, border: "1px solid #bfdbfe" }}>
@@ -384,15 +395,17 @@ function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSa
                   </span>;
                 })}
               </div>
-              {reqDropOpen && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10, maxHeight: 180, overflowY: "auto", marginTop: 4 }}>
+              {reqDropOpen && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10, maxHeight: 220, overflowY: "auto", marginTop: 4 }}>
+                <div style={{ padding: "6px 12px", fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #f1f5f9" }}>Select existing or create new</div>
                 {allRequirements.filter(r => !editState.requirements.includes(r.id)).map(r =>
-                  <div key={r.id} onClick={() => setEditState(p => ({ ...p, requirements: [...p.requirements, r.id] }))} style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 6, alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                  <div key={r.id} onClick={() => { setEditState(p => ({ ...p, requirements: [...p.requirements, r.id] })); }} style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 6, alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
+                    <span style={{ width: 16, height: 16, borderRadius: 4, border: "1.5px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{editState.requirements.includes(r.id) ? <span style={{ fontSize: 11, color: "#2563eb" }}>✓</span> : null}</span>
                     <span style={{ fontWeight: 600, color: "#334155" }}>{r.id}</span><span style={{ color: "#64748b" }}>{r.label}</span>
                   </div>
                 )}
                 <div style={{ padding: "8px 12px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 6, alignItems: "center" }}>
                   <input value={newReqText} onChange={e => setNewReqText(e.target.value)} placeholder="New requirement..." onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter" && newReqText.trim()) { const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setEditState(p => ({ ...p, requirements: [...p.requirements, newId] })); setNewReqText(""); } }} style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 11.5, outline: "none" }} />
-                  <button onClick={e => { e.stopPropagation(); if (!newReqText.trim()) return; const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setEditState(p => ({ ...p, requirements: [...p.requirements, newId] })); setNewReqText(""); }} style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>+ Add</button>
+                  <button onClick={e => { e.stopPropagation(); if (!newReqText.trim()) return; const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setEditState(p => ({ ...p, requirements: [...p.requirements, newId] })); setNewReqText(""); }} style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Create</button>
                 </div>
               </div>}
             </div>
@@ -404,8 +417,37 @@ function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSa
             </div> : <span style={{ color: "#c0c8d4", fontSize: 13 }}>—</span>}
         </div>
         <div style={sectionSt}>
+          <label style={{ ...labelSt, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <span>Test Plans</span>
+            {editing && editState && <button onClick={() => setTestPlanDropOpen(!testPlanDropOpen)} style={{ padding: "2px 8px", borderRadius: 5, border: "1px solid #bfdbfe", background: "#eff6ff", fontSize: 10, fontWeight: 600, cursor: "pointer", color: "#2563eb", textTransform: "none", letterSpacing: 0 }}>+ Add</button>}
+          </label>
+          {editing && editState ? <div style={{ position: "relative" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, minHeight: 28 }}>
+                {editState.testPlans.length === 0 && <span style={{ color: "#94a3b8", fontSize: 12 }}>No test plans linked</span>}
+                {editState.testPlans.map((tp, tpi) =>
+                  <span key={tpi} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", color: "#166534", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, border: "1px solid #bbf7d0" }}>
+                    {tp}
+                    <span onClick={() => setEditState(p => ({ ...p, testPlans: p.testPlans.filter((_, i) => i !== tpi) }))} style={{ cursor: "pointer", fontSize: 13, lineHeight: 1, color: "#86efac" }}>×</span>
+                  </span>
+                )}
+              </div>
+              {testPlanDropOpen && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10, marginTop: 4 }}>
+                <div style={{ padding: "6px 12px", fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #f1f5f9" }}>Create new test plan</div>
+                <div style={{ padding: "8px 12px", display: "flex", gap: 6, alignItems: "center" }}>
+                  <input value={newTestPlanText} onChange={e => setNewTestPlanText(e.target.value)} placeholder="Test plan name..." onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter" && newTestPlanText.trim()) { setEditState(p => ({ ...p, testPlans: [...p.testPlans, newTestPlanText.trim()] })); setNewTestPlanText(""); setTestPlanDropOpen(false); } }} style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 11.5, outline: "none" }} />
+                  <button onClick={e => { e.stopPropagation(); if (!newTestPlanText.trim()) return; setEditState(p => ({ ...p, testPlans: [...p.testPlans, newTestPlanText.trim()] })); setNewTestPlanText(""); setTestPlanDropOpen(false); }} style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Create</button>
+                </div>
+              </div>}
+            </div>
+            : (iface.testPlans || []).length > 0 ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+              {(iface.testPlans || []).map((tp, i) =>
+                <span key={i} style={{ display: "inline-block", background: "#dcfce7", color: "#166534", fontSize: 11.5, fontWeight: 600, padding: "4px 10px", borderRadius: 10 }}>{tp}</span>
+              )}
+            </div> : <span style={{ color: "#c0c8d4", fontSize: 13 }}>—</span>}
+        </div>
+        <div style={sectionSt}>
           <label style={labelSt}>Owner</label>
-          {editing ? <input value={editState.owner} onChange={e => setEditState(p => ({ ...p, owner: e.target.value }))} style={is} placeholder="Assign owner..." />
+          {editing && editState ? <input value={editState.owner} onChange={e => setEditState(p => ({ ...p, owner: e.target.value }))} style={is} placeholder="Assign owner..." />
             : <div style={{ fontSize: 13, color: iface.owner ? "#475569" : "#c0c8d4" }}>{iface.owner || "Unassigned"}</div>}
         </div>
         <div style={{ display: "flex", gap: 12 }}>
@@ -419,7 +461,7 @@ function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSa
           </div>
         </div>
       </div>
-      {editing && <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", flexShrink: 0 }}>
+      {editing && editState && <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", flexShrink: 0 }}>
         <button onClick={() => onSave(editState)} style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save Changes</button>
       </div>}
     </div>
@@ -726,7 +768,7 @@ export default function SERMTool() {
   };
   const handleDetailClose = useCallback(() => { setDetailId(null); setDetailEditing(false); }, []);
   const handleDetailSave = useCallback((updates) => {
-    setIfaces(prev => prev.map(i => i.id === detailId ? { ...i, name: updates.name, desc: updates.desc, interfaceType: updates.interfaceType, requirements: updates.requirements, owner: updates.owner, dateLastUpdated: new Date().toISOString().split("T")[0] } : i));
+    setIfaces(prev => prev.map(i => i.id === detailId ? { ...i, name: updates.name, desc: updates.desc, interfaceType: updates.interfaceType, requirements: updates.requirements, testPlans: updates.testPlans || [], owner: updates.owner, dateLastUpdated: new Date().toISOString().split("T")[0] } : i));
     setDetailEditing(false);
   }, [detailId]);
   const togSb = useCallback((id) => { setSbExp(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }, []);
@@ -801,16 +843,22 @@ export default function SERMTool() {
           <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} style={{ background: "#f1f5f9", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
             <defs>
               <filter id="bs" x="-4%" y="-4%" width="108%" height="116%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodOpacity="0.05" /></filter>
-              <pattern id="grid" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform={`translate(${pan.x},${pan.y}) scale(${zoom})`}><circle cx="1" cy="1" r="0.5" fill="#c0c8d4" opacity="0.3" /></pattern>
+              <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform={`translate(${pan.x},${pan.y}) scale(${zoom})`}><circle cx="10" cy="10" r="1.2" fill="#b0b8c4" opacity="0.45" /></pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-              {containers.map(sys => { const isSB = selBlockId === sys.id; return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => { e.stopPropagation(); setSelBlockId(selBlockId === sys.id ? null : sys.id); setSelId(null); }} onDoubleClick={e => { e.stopPropagation(); handleDblClick(sys.id); }} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
+              {containers.map(sys => { const isSB = selBlockId === sys.id; const isH = hovBlock === sys.id && !connecting; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => { e.stopPropagation(); setSelBlockId(selBlockId === sys.id ? null : sys.id); setSelId(null); }} onDoubleClick={e => { e.stopPropagation(); handleDblClick(sys.id); }} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
                 <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={10} fill={`${sys.color}06`} stroke={relIds.includes(sys.id) || isSB ? "#2563eb" : sys.color} strokeWidth={relIds.includes(sys.id) || isSB ? 2.5 : 1.5} strokeDasharray="7 3" />
                 <rect x={sys.x} y={sys.y} width={sys.w} height={HEADER_H} rx={10} fill={`${sys.color}0d`} /><rect x={sys.x} y={sys.y + HEADER_H - 8} width={sys.w} height={8} fill={`${sys.color}0d`} />
                 <CubeIcon x={sys.x + 10} y={sys.y + 10} size={18} color={sys.color} />
                 <text x={sys.x + 34} y={sys.y + 26} fontSize={13} fontFamily="'DM Sans',sans-serif" fontWeight={700} fill="#1e293b">{sys.name}</text>
                 <text x={sys.x + sys.w - 12} y={sys.y + 26} textAnchor="end" fontSize={10} fill="#94a3b8">{sys.reqs}</text>
+                {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
+                  e.stopPropagation(); e.preventDefault();
+                  const ifaceObj = ifaces.find(iface => iface.id === d.ifaceId);
+                  if (ifaceObj) setDraggingDot({ ifaceId: d.ifaceId, role: ifaceObj.source === sys.id ? "source" : "target", blockId: sys.id, currentDotId: d.id, snapDotId: d.id });
+                }} />)}
+                {isH && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
               </g>; })}
 
               {ifaces.map(iface => {
@@ -828,19 +876,34 @@ export default function SERMTool() {
                 </g>;
               })}
 
-              {externalIfaces.map(iface => {
-                const inId = focusIds?.has(iface.source) ? iface.source : iface.target;
-                const outId = inId === iface.source ? iface.target : iface.source;
-                const inB = visible[inId]; if (!inB) return null;
-                const sx = inB.x, sy = inB.y + inB.h * 0.75, ex = sx - 50, ey = sy + 20;
-                const isH = hovStub === iface.id; const isR = revealed.has(outId);
-                return <g key={"ext" + iface.id} onMouseEnter={() => setHovStub(iface.id)} onMouseLeave={() => setHovStub(null)}>
-                  <path d={`M${sx},${sy} L${sx - 20},${sy} L${sx - 20},${ey} L${ex},${ey}`} fill="none" stroke="#b0b8c4" strokeWidth={2} strokeDasharray="4 3" />
-                  <circle cx={ex} cy={ey} r={10} fill="transparent" style={{ cursor: "pointer" }} onClick={e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); }} />
-                  <circle cx={ex} cy={ey} r={4} fill="#94a3b8" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: "none" }} /><circle cx={sx} cy={sy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
-                  {(isH || isR) && <text x={ex - 8} y={ey + 4} textAnchor="end" fontSize={10} fontFamily="'DM Sans',sans-serif" fill="#64748b" opacity={isR ? 1 : 0.5} style={{ cursor: "pointer" }} onClick={e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); }}>{positioned[outId]?.name || outId}</text>}
-                </g>;
-              })}
+              {(() => {
+                // Group external ifaces by their internal block so we can space them apart
+                const extByBlock = {};
+                for (const iface of externalIfaces) {
+                  const inId = focusIds?.has(iface.source) ? iface.source : iface.target;
+                  if (!extByBlock[inId]) extByBlock[inId] = [];
+                  extByBlock[inId].push(iface);
+                }
+                return externalIfaces.map(iface => {
+                  const inId = focusIds?.has(iface.source) ? iface.source : iface.target;
+                  const outId = inId === iface.source ? iface.target : iface.source;
+                  const inB = visible[inId]; if (!inB) return null;
+                  const group = extByBlock[inId] || [];
+                  const idx = group.indexOf(iface);
+                  const gap = 28;
+                  const startY = inB.y + inB.h * 0.3;
+                  const sy = startY + idx * gap;
+                  const sx = inB.x;
+                  const ex = sx - 50 - idx * 12, ey = sy;
+                  const isH = hovStub === iface.id; const isR = revealed.has(outId);
+                  return <g key={"ext" + iface.id} onMouseEnter={() => setHovStub(iface.id)} onMouseLeave={() => setHovStub(null)}>
+                    <path d={`M${sx},${sy} L${ex},${ey}`} fill="none" stroke="#b0b8c4" strokeWidth={2} strokeDasharray="4 3" />
+                    <circle cx={ex} cy={ey} r={10} fill="transparent" style={{ cursor: "pointer" }} onClick={e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); }} />
+                    <circle cx={ex} cy={ey} r={4} fill="#94a3b8" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: "none" }} /><circle cx={sx} cy={sy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
+                    {(isH || isR) && <text x={ex - 8} y={ey + 4} textAnchor="end" fontSize={10} fontFamily="'DM Sans',sans-serif" fill="#64748b" opacity={isR ? 1 : 0.5} style={{ cursor: "pointer" }} onClick={e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); }}>{positioned[outId]?.name || outId}</text>}
+                  </g>;
+                });
+              })()}
 
               {leaves.map(sys => {
                 const dim = selId && !relIds.includes(sys.id);
