@@ -866,6 +866,8 @@ export default function SERMTool() {
   const dotOverridesRef = useRef(dotOverrides); dotOverridesRef.current = dotOverrides;
   const initialCentered = useRef(false);
   const rawDragAccum = useRef({});
+  const prevExpandedRef = useRef(null);
+  const expandedRef = useRef(expanded); expandedRef.current = expanded;
   const connFocusIdRef = useRef(connFocusId); connFocusIdRef.current = connFocusId;
   const [centerTrigger, setCenterTrigger] = useState(0);
   const parentMap = useMemo(() => buildParentMap(hierarchy, null), []);
@@ -917,7 +919,8 @@ export default function SERMTool() {
       let ok = true, pid = parentMap[id];
       while (pid) { if (!expanded.has(pid)) { ok = false; break; } pid = parentMap[pid]; }
       if (!ok) continue;
-      if (focusIds && !connFocusSet && !focusIds.has(id)) continue;
+      if (connFocusSet) { if (!connFocusSet.has(id)) continue; }
+      else if (focusIds && !focusIds.has(id)) continue;
       v[id] = sys;
     }
     return v;
@@ -988,7 +991,12 @@ export default function SERMTool() {
   const connDots = useMemo(() => { const m = {}; for (const [ifId, da] of Object.entries(animDots)) { const iface = ifaces.find(i => i.id === ifId); if (!iface) continue; if (!m[iface.source]) m[iface.source] = []; m[iface.source].push({ ...da.s, ifaceId: ifId }); if (!m[iface.target]) m[iface.target] = []; m[iface.target].push({ ...da.t, ifaceId: ifId }); } return m; }, [animDots, ifaces]);
 
   const exitConnFocus = useCallback(() => {
+    if (prevExpandedRef.current) {
+      setExpanded(prevExpandedRef.current);
+      prevExpandedRef.current = null;
+    }
     setConnFocusId(null);
+    setCenterTrigger(c => c + 1);
   }, []);
 
   const enterConnFocus = useCallback((id) => {
@@ -996,8 +1004,28 @@ export default function SERMTool() {
       exitConnFocus();
       return;
     }
+    if (!connFocusIdRef.current) {
+      prevExpandedRef.current = new Set(expandedRef.current);
+    }
+    setFocusId(null); setRevealed(new Set());
+    const focusedAndDesc = new Set([id, ...getDescendantIds(hierarchy, id)]);
+    const neededExpansions = new Set();
+    getAncestorIds(id, parentMap).forEach(a => neededExpansions.add(a));
+    const focusedNode = findNode(hierarchy, id);
+    if (focusedNode?.children?.length) neededExpansions.add(id);
+    for (const iface of ifaces) {
+      if (focusedAndDesc.has(iface.source) || focusedAndDesc.has(iface.target)) {
+        getAncestorIds(iface.source, parentMap).forEach(a => neededExpansions.add(a));
+        getAncestorIds(iface.target, parentMap).forEach(a => neededExpansions.add(a));
+      }
+    }
+    const base = prevExpandedRef.current || expandedRef.current;
+    const n = new Set(base);
+    neededExpansions.forEach(a => n.add(a));
+    setExpanded(n);
     setConnFocusId(id);
-  }, [exitConnFocus]);
+    setCenterTrigger(c => c + 1);
+  }, [exitConnFocus, ifaces, parentMap]);
 
   const blockClickRef = useRef({ id: null, time: 0 });
   const canvasClickRef = useRef({ time: 0 });
@@ -1158,6 +1186,7 @@ export default function SERMTool() {
   const togSb = useCallback((id) => { setSbExp(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }, []);
   const focusSys = useCallback((id) => {
     if (connFocusIdRef.current) {
+      if (prevExpandedRef.current) { setExpanded(prevExpandedRef.current); prevExpandedRef.current = null; }
       setConnFocusId(null);
     }
     const currentKey = focusIdRef.current || "__all__";
@@ -1237,7 +1266,7 @@ export default function SERMTool() {
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-              {containers.map(sys => { const isSB = selBlockId === sys.id; const isH = hovBlock === sys.id && !connecting; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); const cfDim = connFocusSet && !connFocusSet.has(sys.id); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: cfDim ? 0.15 : selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
+              {containers.map(sys => { const isSB = selBlockId === sys.id; const isH = hovBlock === sys.id && !connecting; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
                 <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={10} fill={`${sys.color}06`} stroke={relIds.includes(sys.id) || isSB ? "#2563eb" : sys.color} strokeWidth={relIds.includes(sys.id) || isSB ? 2.5 : 1.5} strokeDasharray="7 3" />
                 <rect x={sys.x} y={sys.y} width={sys.w} height={HEADER_H} rx={10} fill={`${sys.color}0d`} /><rect x={sys.x} y={sys.y + HEADER_H - 8} width={sys.w} height={8} fill={`${sys.color}0d`} />
                 <CubeIcon x={sys.x + 10} y={sys.y + 10} size={18} color={sys.color} />
@@ -1252,15 +1281,17 @@ export default function SERMTool() {
               </g>; })}
 
               {ifaces.map(iface => {
-                const cfIfaceDim = connFocusRootIds && !connFocusRootIds.has(iface.source) && !connFocusRootIds.has(iface.target);
+                if (connFocusRootIds && !connFocusRootIds.has(iface.source) && !connFocusRootIds.has(iface.target)) return null;
                 const da = animDots[iface.id]; const pill = pills[iface.id];
                 if (!da || !pill) return null;
                 const pcx = pill.x + pill.w / 2, pcy = pill.y + pill.h / 2;
                 const isAct = selId === iface.id || hovId === iface.id || blockRelIfaceIds.has(iface.id);
                 const sDotId = da.s.id, tDotId = da.t.id;
+                // Source→Pill path: source dot determines exit direction, pill is flexible endpoint
                 const sPath = smartElbowPath(da.s.cx, da.s.cy, pcx, pcy, sDotId, null, undefined, leafRects);
+                // Pill→Target path: pill is flexible start, target dot determines entry direction
                 const tPath = smartElbowPath(pcx, pcy, da.t.cx, da.t.cy, null, tDotId, undefined, leafRects);
-                return <g key={iface.id} style={{ opacity: cfIfaceDim ? 0.1 : 1, transition: "opacity 0.15s" }}>
+                return <g key={iface.id}>
                   <path d={sPath} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
                   <path d={tPath} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
                   <path d={sPath} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
@@ -1301,11 +1332,10 @@ export default function SERMTool() {
 
               {leaves.map(sys => {
                 const dim = selId && !relIds.includes(sys.id);
-                const cfDim = connFocusSet && !connFocusSet.has(sys.id);
                 const isR = relIds.includes(sys.id); const isSB = selBlockId === sys.id; const isC = !sys.expanded && sys.hasChildren;
                 const isH = hovBlock === sys.id && !connecting;
                 const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id));
-                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: cfDim ? 0.15 : dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
+                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
                   <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill="#fff" stroke={isR || isSB ? "#2563eb" : isH ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR || isSB ? 2.5 : 1} filter="url(#bs)" />
                   <CubeIcon x={sys.x + 10} y={sys.y + (sys.h - 17) / 2} size={17} color={sys.color} />
                   <text x={sys.x + 32} y={sys.y + sys.h / 2 + 4.5} fontSize={12.5} fontFamily="'DM Sans',sans-serif" fontWeight={600} fill="#1e293b">{sys.name.length > 17 ? sys.name.slice(0, 17) + "..." : sys.name}</text>
