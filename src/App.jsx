@@ -146,7 +146,24 @@ function computePills(ifaces, vis, dots, offsets) {
   return pills;
 }
 
-function elbowPath(sx, sy, tx, ty) { const mx = (sx + tx) / 2; return `M${sx},${sy} L${mx},${sy} L${mx},${ty} L${tx},${ty}`; }
+// Build a 3-segment orthogonal (H-V-H) path from (sx,sy) to (tx,ty).
+// midX is the x-coordinate of the vertical segment; defaults to horizontal midpoint.
+function elbowPath(sx, sy, tx, ty, midX) {
+  const mx = midX !== undefined ? midX : (sx + tx) / 2;
+  return `M${sx},${sy} L${mx},${sy} L${mx},${ty} L${tx},${ty}`;
+}
+
+// Returns an array of SVG path segment descriptors for the elbow:
+// [{type:'H', from:[sx,sy], to:[mx,sy]}, {type:'V', from:[mx,sy], to:[mx,ty]}, {type:'H', from:[mx,ty], to:[tx,ty]}]
+// Useful for making individual segments draggable.
+function elbowSegments(sx, sy, tx, ty, midX) {
+  const mx = midX !== undefined ? midX : (sx + tx) / 2;
+  return [
+    { type: 'H', x1: sx, y1: sy, x2: mx, y2: sy },
+    { type: 'V', x1: mx, y1: sy, x2: mx, y2: ty },
+    { type: 'H', x1: mx, y1: ty, x2: tx, y2: ty },
+  ];
+}
 
 const CubeIcon = ({ x, y, size, color }) => {
   const s = size, cx = x + s / 2, cy = y + s / 2, h = s * 0.45, w = s * 0.42;
@@ -562,6 +579,9 @@ export default function SERMTool() {
   const [pillOffsets, setPillOffsets] = useState({});
   const [draggingPill, setDraggingPill] = useState(null);
   const [pillDragStart, setPillDragStart] = useState(null);
+  const [lineOffsets, setLineOffsets] = useState({});
+  const [draggingLine, setDraggingLine] = useState(null);
+  const [lineDragStart, setLineDragStart] = useState(null);
   const [viewSize, setViewSize] = useState({ w: 900, h: 600 });
   const [viewStates, setViewStates] = useState({});
   const [dotOverrides, setDotOverrides] = useState({});
@@ -574,6 +594,7 @@ export default function SERMTool() {
   const panValRef = useRef(pan); panValRef.current = pan;
   const dragOffsetsRef = useRef(dragOffsets); dragOffsetsRef.current = dragOffsets;
   const pillOffsetsRef = useRef(pillOffsets); pillOffsetsRef.current = pillOffsets;
+  const lineOffsetsRef = useRef(lineOffsets); lineOffsetsRef.current = lineOffsets;
   const focusIdRef = useRef(focusId); focusIdRef.current = focusId;
   const viewStatesRef = useRef(viewStates); viewStatesRef.current = viewStates;
   const dotOverridesRef = useRef(dotOverrides); dotOverridesRef.current = dotOverrides;
@@ -678,10 +699,16 @@ export default function SERMTool() {
   const connDots = useMemo(() => { const m = {}; for (const [ifId, da] of Object.entries(animDots)) { const iface = ifaces.find(i => i.id === ifId); if (!iface) continue; if (!m[iface.source]) m[iface.source] = []; m[iface.source].push({ ...da.s, ifaceId: ifId }); if (!m[iface.target]) m[iface.target] = []; m[iface.target].push({ ...da.t, ifaceId: ifId }); } return m; }, [animDots, ifaces]);
 
   const handleBlockDown = useCallback((e, id) => { e.stopPropagation(); setDragging(id); dragRef.current = { x: e.clientX, y: e.clientY }; }, []);
-  const handleDblClick = useCallback((id) => { setExpanded(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); setDragOffsets({}); setPillOffsets({}); }, []);
-  const handleCanvasDown = useCallback((e) => { if (!dragging && !connecting && !draggingPill) { setPanSt(true); panRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; setSelId(null); setSelBlockId(null); } }, [pan, dragging, connecting, draggingPill]);
+  const handleDblClick = useCallback((id) => { setExpanded(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); setDragOffsets({}); setPillOffsets({}); setLineOffsets({}); }, []);
+  const handleCanvasDown = useCallback((e) => { if (!dragging && !connecting && !draggingPill && !draggingLine) { setPanSt(true); panRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; setSelId(null); setSelBlockId(null); } }, [pan, dragging, connecting, draggingPill, draggingLine]);
   const handleDotDown = useCallback((e, sysId, cx, cy) => { e.stopPropagation(); e.preventDefault(); const r = svgRef.current.getBoundingClientRect(); setConnecting({ sourceId: sysId, startX: cx, startY: cy, currentX: (e.clientX - r.left - pan.x) / zoom, currentY: (e.clientY - r.top - pan.y) / zoom }); }, [pan, zoom]);
   const handlePillDown = useCallback((e, ifId) => { e.stopPropagation(); setDraggingPill(ifId); setPillDragStart({ x: e.clientX, y: e.clientY, off: pillOffsets[ifId] || { dx: 0, dy: 0 } }); }, [pillOffsets]);
+  // Handle dragging the vertical middle segment of a connector line
+  const handleLineDown = useCallback((e, ifId, currentMidX) => {
+    e.stopPropagation();
+    setDraggingLine(ifId);
+    setLineDragStart({ x: e.clientX, startMidX: currentMidX });
+  }, []);
 
   // Native wheel listener on canvas (passive: false) to prevent browser pinch-zoom
   useEffect(() => {
@@ -724,6 +751,11 @@ export default function SERMTool() {
         const sdy = Math.round((pillDragStart.off.dy + dy) / 28) * 28;
         setPillOffsets(prev => ({ ...prev, [draggingPill]: { dx: sdx, dy: sdy } }));
       }
+      if (draggingLine && lineDragStart) {
+        const dx = (e.clientX - lineDragStart.x) / zoom;
+        const newMidX = Math.round((lineDragStart.startMidX + dx) / 1) * 1;
+        setLineOffsets(prev => ({ ...prev, [draggingLine]: newMidX }));
+      }
       if (draggingDot) {
         const r = svgRef.current.getBoundingClientRect();
         const mx = (e.clientX - r.left - pan.x) / zoom, my = (e.clientY - r.top - pan.y) / zoom;
@@ -751,11 +783,11 @@ export default function SERMTool() {
         if (tid) setModal({ mode: "drag", sourceId: connecting.sourceId, targetId: tid });
         setConnecting(null);
       }
-      setDragging(null); setPanSt(false); setDraggingPill(null); setPillDragStart(null);
+      setDragging(null); setPanSt(false); setDraggingPill(null); setPillDragStart(null); setDraggingLine(null); setLineDragStart(null);
     };
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, [dragging, panning, connecting, draggingPill, pillDragStart, draggingDot, zoom, pan, visible]);
+  }, [dragging, panning, connecting, draggingPill, pillDragStart, draggingDot, draggingLine, lineDragStart, zoom, pan, visible]);
 
   const handleCreate = (src, tgt, name, desc, requirements) => {
     const mx = Math.max(0, ...ifaces.map(i => parseInt(i.id.split("-")[1]) || 0));
@@ -774,12 +806,13 @@ export default function SERMTool() {
   const togSb = useCallback((id) => { setSbExp(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }, []);
   const focusSys = useCallback((id) => {
     const currentKey = focusIdRef.current || "__all__";
-    setViewStates(prev => ({ ...prev, [currentKey]: { dragOffsets: dragOffsetsRef.current, pillOffsets: pillOffsetsRef.current, dotOverrides: dotOverridesRef.current } }));
+    setViewStates(prev => ({ ...prev, [currentKey]: { dragOffsets: dragOffsetsRef.current, pillOffsets: pillOffsetsRef.current, dotOverrides: dotOverridesRef.current, lineOffsets: lineOffsetsRef.current } }));
     const targetKey = id || "__all__";
     const saved = viewStatesRef.current[targetKey];
     setDragOffsets(saved ? saved.dragOffsets : {});
     setPillOffsets(saved ? saved.pillOffsets : {});
     setDotOverrides(saved ? saved.dotOverrides || {} : {});
+    setLineOffsets(saved ? saved.lineOffsets || {} : {});
     setFocusId(id); setRevealed(new Set());
     setCenterTrigger(c => c + 1);
   }, []);
