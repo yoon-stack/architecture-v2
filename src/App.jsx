@@ -448,23 +448,23 @@ const initRequirements = [
 ];
 
 const initIfaces = [
-  { id: "INT-1", source: "stage-1", target: "ground-station", name: "Stage 1 → Ground Stn", desc: "Telemetry downlink from Stage 1 to Ground Station", interfaceType: "Signal", requirements: ["REQ-78"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10" },
-  { id: "INT-2", source: "ground-station", target: "stage-2", name: "Ground Stn → Stage 2", desc: "Command uplink to Stage 2", interfaceType: "Signal", requirements: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14" },
-  { id: "INT-3", source: "s1-avionics", target: "s1-propulsion", name: "Avionics → Propulsion", desc: "Engine control commands and thrust vector data", interfaceType: "Mechanical", requirements: ["REQ-110"], dateCreated: "2025-05-12", dateLastUpdated: "2025-08-10" },
-  { id: "INT-5", source: "example", target: "stage-2", name: "Example → Stage 2", desc: "", interfaceType: "", requirements: [], dateCreated: "2024-12-02", dateLastUpdated: "2025-08-10" },
-  { id: "INT-6", source: "s1-propulsion", target: "s1-structures", name: "Propulsion → Structures", desc: "Thrust load transfer interface", interfaceType: "Mechanical", requirements: ["REQ-62", "REQ-67"], dateCreated: "2024-11-15", dateLastUpdated: "2025-07-22" },
-  { id: "INT-7", source: "s2-avionics", target: "s2-propulsion", name: "S2 Avio → S2 Propulsion", desc: "Flight computer to engine controller", interfaceType: "Electrical", requirements: ["REQ-78"], dateCreated: "2025-01-10", dateLastUpdated: "2025-06-18" },
-  { id: "INT-8", source: "s2-propulsion", target: "s2-structures", name: "S2 Propulsion → Structures", desc: "Upper stage thrust loads", interfaceType: "Mechanical", requirements: ["REQ-67"], dateCreated: "2025-02-05", dateLastUpdated: "2025-09-03" },
-  { id: "INT-9", source: "s1-avionics", target: "s1-payload", name: "Avionics → Payload", desc: "Payload telemetry relay", interfaceType: "Signal", requirements: [], dateCreated: "2025-04-20", dateLastUpdated: "2025-04-20" },
-  { id: "INT-10", source: "s2-avionics", target: "s2-navigation", name: "S2 Avio → Navigation", desc: "Inertial navigation data feed", interfaceType: "Signal", requirements: ["REQ-101"], dateCreated: "2025-03-14", dateLastUpdated: "2025-08-29" },
-  { id: "INT-11", source: "s2-navigation", target: "s2-attitude", name: "Navigation → Attitude Ctrl", desc: "Attitude correction commands from nav system", interfaceType: "Signal", requirements: ["REQ-101"], dateCreated: "2025-05-01", dateLastUpdated: "2025-10-07" },
-  { id: "INT-12", source: "s2-avionics", target: "s2-data-handling", name: "S2 Avio → Data Handling", desc: "Onboard data bus interface", interfaceType: "Electrical", requirements: ["REQ-78"], dateCreated: "2025-06-12", dateLastUpdated: "2025-06-12" },
-  { id: "INT-13", source: "s2-separation", target: "s2-structures", name: "Separation → Structures", desc: "Stage separation mechanism mounting", interfaceType: "Mechanical", requirements: ["REQ-67", "REQ-110"], dateCreated: "2025-01-28", dateLastUpdated: "2025-07-15" },
-  { id: "INT-14", source: "s2-payload-fairing", target: "s2-structures", name: "Fairing → Structures", desc: "Fairing attachment points", interfaceType: "Mechanical", requirements: ["REQ-62"], dateCreated: "2025-03-05", dateLastUpdated: "2025-09-20" },
-  { id: "INT-24", source: "stage-1", target: "stage-2", name: "Stage 1 → Stage 2", desc: "Inter-stage structural and electrical interface", interfaceType: "Mechanical", requirements: ["REQ-78", "REQ-67"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10" },
-  { id: "INT-25", source: "stage-2", target: "stage-1", name: "Stage 2 → Stage 1", desc: "Staging separation signal", interfaceType: "Signal", requirements: ["REQ-110"], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14" },
-  { id: "INT-30", source: "s1-avionics", target: "s2-avionics", name: "S1 Avio → S2 Avio", desc: "Cross-stage avionics data link", interfaceType: "Signal", requirements: ["REQ-78"], dateCreated: "2025-05-28", dateLastUpdated: "2025-05-28" },
-  { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "External data uplink", interfaceType: "Electrical", requirements: ["REQ-67"], dateCreated: "2025-02-19", dateLastUpdated: "2025-05-18" },
+  { id: "INT-1", source: "stage-1", target: "ground-station", name: "Stage 1 → Ground Stn", desc: "Telemetry downlink from Stage 1 to Ground Station", interfaceType: "Signal", requirements: ["REQ-78"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Yoon flow test", progress: 85 },
+  { id: "INT-2", source: "ground-station", target: "stage-2", name: "Ground Stn → Stage 2", desc: "Command uplink to Stage 2", interfaceType: "Signal", requirements: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14", verificationStatus: "unknown", maturityLevel: "defined", owner: "", team: "Yoon flow test", progress: 40 },
+  { id: "INT-3", source: "s1-avionics", target: "s1-propulsion", name: "Avionics → Propulsion", desc: "Engine control commands and thrust vector data", interfaceType: "Mechanical", requirements: ["REQ-110"], dateCreated: "2025-05-12", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Propulsion team", progress: 100 },
+  { id: "INT-5", source: "example", target: "stage-2", name: "Example → Stage 2", desc: "", interfaceType: "", requirements: [], dateCreated: "2024-12-02", dateLastUpdated: "2025-08-10", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "", progress: 0 },
+  { id: "INT-6", source: "s1-propulsion", target: "s1-structures", name: "Propulsion → Structures", desc: "Thrust load transfer interface", interfaceType: "Mechanical", requirements: ["REQ-62", "REQ-67"], dateCreated: "2024-11-15", dateLastUpdated: "2025-07-22", verificationStatus: "fail", maturityLevel: "defined", owner: "Yoon Bae", team: "Structures team", progress: 55 },
+  { id: "INT-7", source: "s2-avionics", target: "s2-propulsion", name: "S2 Avio → S2 Propulsion", desc: "Flight computer to engine controller", interfaceType: "Electrical", requirements: ["REQ-78"], dateCreated: "2025-01-10", dateLastUpdated: "2025-06-18", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Avionics team", progress: 90 },
+  { id: "INT-8", source: "s2-propulsion", target: "s2-structures", name: "S2 Propulsion → Structures", desc: "Upper stage thrust loads", interfaceType: "Mechanical", requirements: ["REQ-67"], dateCreated: "2025-02-05", dateLastUpdated: "2025-09-03", verificationStatus: "unknown", maturityLevel: "defined", owner: "", team: "Structures team", progress: 30 },
+  { id: "INT-9", source: "s1-avionics", target: "s1-payload", name: "Avionics → Payload", desc: "Payload telemetry relay", interfaceType: "Signal", requirements: [], dateCreated: "2025-04-20", dateLastUpdated: "2025-04-20", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "", progress: 10 },
+  { id: "INT-10", source: "s2-avionics", target: "s2-navigation", name: "S2 Avio → Navigation", desc: "Inertial navigation data feed", interfaceType: "Signal", requirements: ["REQ-101"], dateCreated: "2025-03-14", dateLastUpdated: "2025-08-29", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Navigation team", progress: 75 },
+  { id: "INT-11", source: "s2-navigation", target: "s2-attitude", name: "Navigation → Attitude Ctrl", desc: "Attitude correction commands from nav system", interfaceType: "Signal", requirements: ["REQ-101"], dateCreated: "2025-05-01", dateLastUpdated: "2025-10-07", verificationStatus: "fail", maturityLevel: "concept", owner: "", team: "GNC team", progress: 20 },
+  { id: "INT-12", source: "s2-avionics", target: "s2-data-handling", name: "S2 Avio → Data Handling", desc: "Onboard data bus interface", interfaceType: "Electrical", requirements: ["REQ-78"], dateCreated: "2025-06-12", dateLastUpdated: "2025-06-12", verificationStatus: "unknown", maturityLevel: "defined", owner: "Yoon Bae", team: "Avionics team", progress: 50 },
+  { id: "INT-13", source: "s2-separation", target: "s2-structures", name: "Separation → Structures", desc: "Stage separation mechanism mounting", interfaceType: "Mechanical", requirements: ["REQ-67", "REQ-110"], dateCreated: "2025-01-28", dateLastUpdated: "2025-07-15", verificationStatus: "success", maturityLevel: "defined", owner: "Yoon Bae", team: "Structures team", progress: 65 },
+  { id: "INT-14", source: "s2-payload-fairing", target: "s2-structures", name: "Fairing → Structures", desc: "Fairing attachment points", interfaceType: "Mechanical", requirements: ["REQ-62"], dateCreated: "2025-03-05", dateLastUpdated: "2025-09-20", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "Structures team", progress: 15 },
+  { id: "INT-24", source: "stage-1", target: "stage-2", name: "Stage 1 → Stage 2", desc: "Inter-stage structural and electrical interface", interfaceType: "Mechanical", requirements: ["REQ-78", "REQ-67"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Integration team", progress: 95 },
+  { id: "INT-25", source: "stage-2", target: "stage-1", name: "Stage 2 → Stage 1", desc: "Staging separation signal", interfaceType: "Signal", requirements: ["REQ-110"], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14", verificationStatus: "fail", maturityLevel: "defined", owner: "", team: "Integration team", progress: 35 },
+  { id: "INT-30", source: "s1-avionics", target: "s2-avionics", name: "S1 Avio → S2 Avio", desc: "Cross-stage avionics data link", interfaceType: "Signal", requirements: ["REQ-78"], dateCreated: "2025-05-28", dateLastUpdated: "2025-05-28", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "Avionics team", progress: 5 },
+  { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "External data uplink", interfaceType: "Electrical", requirements: ["REQ-67"], dateCreated: "2025-02-19", dateLastUpdated: "2025-05-18", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Ground ops", progress: 80 },
 ];
 
 function MiniMap({ blocks, pan, zoom, vw, vh }) {
@@ -583,171 +583,140 @@ function InterfaceModal({ mode, sourceId, targetId, allSystems, allRequirements,
   </div>;
 }
 
-function DetailPanel({ iface, allSystems, allRequirements, editing, onEdit, onSave, onClose, onAddReq }) {
-  const [vis, setVis] = useState(false);
-  const [editState, setEditState] = useState(null);
-  const reqDropRef = useRef(null);
-  const [reqDropOpen, setReqDropOpen] = useState(false);
-  const [newReqText, setNewReqText] = useState("");
-  const [testPlanDropOpen, setTestPlanDropOpen] = useState(false);
-  const [newTestPlanText, setNewTestPlanText] = useState("");
-
-  useEffect(() => { requestAnimationFrame(() => requestAnimationFrame(() => setVis(true))); }, []);
-  useEffect(() => {
-    if (editing) setEditState({ name: iface.name, desc: iface.desc || "", interfaceType: iface.interfaceType || "", requirements: [...(iface.requirements || [])], owner: iface.owner || "", testPlans: [...(iface.testPlans || [])] });
-    else { setEditState(null); setReqDropOpen(false); setTestPlanDropOpen(false); }
-  }, [editing, iface]);
+function DetailPanel({ iface, allSystems, onClose }) {
   useEffect(() => { const h = (e) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
-  useEffect(() => {
-    if (!reqDropOpen) return;
-    const handler = (e) => { if (reqDropRef.current && !reqDropRef.current.contains(e.target)) setReqDropOpen(false); };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [reqDropOpen]);
-  useEffect(() => {
-    if (!testPlanDropOpen) return;
-    const handler = () => setTestPlanDropOpen(false);
-    const timer = setTimeout(() => document.addEventListener("mousedown", handler), 0);
-    return () => { clearTimeout(timer); document.removeEventListener("mousedown", handler); };
-  }, [testPlanDropOpen]);
 
   const srcSys = allSystems[iface.source], tgtSys = allSystems[iface.target];
-  const sysColor = (id) => allSystems[id]?.color || "#94a3b8";
-  const is = { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12.5, background: "#f8fafc", outline: "none", boxSizing: "border-box", fontFamily: "inherit" };
-  const labelSt = { display: "block", marginBottom: 4, fontSize: 10.5, fontWeight: 600, color: "#94a3b8", letterSpacing: "0.4px", textTransform: "uppercase" };
-  const sectionSt = { marginBottom: 18 };
-  const typeColors = { Electrical: { bg: "#fef3c7", fg: "#92400e" }, Mechanical: { bg: "#dcfce7", fg: "#166534" }, Signal: { bg: "#fce7f3", fg: "#9d174d" }, Data: { bg: "#e0e7ff", fg: "#3730a3" } };
 
-  return <>
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 999, background: "rgba(0,0,0,0.08)" }} />
-    <div style={{ position: "fixed", top: 46, right: 0, bottom: 0, width: 420, background: "#fff", zIndex: 1000, boxShadow: "-4px 0 24px rgba(0,0,0,0.1)", borderLeft: "1px solid #e2e8f0", transform: vis ? "translateX(0)" : "translateX(100%)", transition: "transform 0.25s ease-out", display: "flex", flexDirection: "column", fontFamily: "'DM Sans',sans-serif" }}>
-      <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "#0f172a" }}>Interface Details</h3>
-          <span style={{ fontSize: 11, color: "#94a3b8" }}>{iface.id}</span>
+  const verificationConfig = {
+    success: { label: "Success", color: "#16a34a", bg: "#f0fdf4", icon: "✓" },
+    fail: { label: "Fail", color: "#dc2626", bg: "#fef2f2", icon: "✕" },
+    unknown: { label: "Unknown", color: "#94a3b8", bg: "#f8fafc", icon: "?" },
+  };
+  const maturityConfig = {
+    concept: { label: "Concept", color: "#f59e0b", bg: "#fffbeb", icon: "◇" },
+    defined: { label: "Defined", color: "#8b5cf6", bg: "#f5f3ff", icon: "◆" },
+    verified: { label: "Verified", color: "#16a34a", bg: "#f0fdf4", icon: "◆" },
+  };
+
+  const vs = verificationConfig[iface.verificationStatus] || verificationConfig.unknown;
+  const ml = maturityConfig[iface.maturityLevel] || maturityConfig.concept;
+  const progress = iface.progress || 0;
+
+  const rowStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f1f5f9" };
+  const labelStyle = { fontSize: 13, color: "#6b7280", fontWeight: 500 };
+  const valueStyle = { fontSize: 13, color: "#1f2937", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 };
+
+  return (
+    <div style={{ width: 380, background: "#fff", borderLeft: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0, fontFamily: "'DM Sans',sans-serif", overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #e2e8f0", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{iface.id}</span>
+          <button onClick={onClose} style={{ width: 24, height: 24, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", fontSize: 15, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>×</button>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {editing
-            ? <button onClick={() => onEdit(false)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: 11.5, fontWeight: 600, cursor: "pointer", color: "#64748b" }}>Cancel</button>
-            : <button onClick={() => onEdit(true)} style={{ padding: "6px 14px", borderRadius: 6, border: "1px solid #bfdbfe", background: "#eff6ff", fontSize: 11.5, fontWeight: 600, cursor: "pointer", color: "#2563eb" }}>Edit</button>}
-          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", fontSize: 14, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>{iface.name}</h3>
+        {iface.desc && <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "#64748b", lineHeight: 1.5 }}>{iface.desc}</p>}
+      </div>
+
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        {/* Properties Section */}
+        <div style={{ padding: "4px 20px 0" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 6px" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Properties</span>
+          </div>
+
+          {/* Verification Status */}
+          <div style={rowStyle}>
+            <span style={labelStyle}>Verification</span>
+            <span style={{ ...valueStyle, background: vs.bg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: vs.color, border: `1px solid ${vs.color}20` }}>
+              <span style={{ fontSize: 10 }}>{vs.icon}</span> {vs.label}
+            </span>
+          </div>
+
+          {/* Maturity Level */}
+          <div style={rowStyle}>
+            <span style={labelStyle}>Maturity</span>
+            <span style={{ ...valueStyle, background: ml.bg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: ml.color, border: `1px solid ${ml.color}20` }}>
+              <span style={{ fontSize: 8 }}>{ml.icon}</span> {ml.label}
+            </span>
+          </div>
+
+          {/* Interface Type */}
+          {iface.interfaceType && <div style={rowStyle}>
+            <span style={labelStyle}>Type</span>
+            <span style={{ ...valueStyle, fontSize: 13 }}>{iface.interfaceType}</span>
+          </div>}
+
+          {/* Owner */}
+          <div style={rowStyle}>
+            <span style={labelStyle}>Owner</span>
+            {iface.owner ? (
+              <span style={valueStyle}>
+                <span style={{ width: 22, height: 22, borderRadius: 11, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff" }}>{iface.owner.charAt(0).toUpperCase()}</span>
+                {iface.owner}
+              </span>
+            ) : <span style={{ fontSize: 13, color: "#c0c8d4" }}>Unassigned</span>}
+          </div>
+
+          {/* Team */}
+          <div style={rowStyle}>
+            <span style={labelStyle}>Team</span>
+            {iface.team ? (
+              <span style={valueStyle}>
+                <span style={{ width: 18, height: 18, borderRadius: 9, background: "#22c55e30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#16a34a" }}>●</span>
+                {iface.team}
+              </span>
+            ) : <span style={{ fontSize: 13, color: "#c0c8d4" }}>No team</span>}
+          </div>
+
+          {/* Source / Target */}
+          <div style={rowStyle}>
+            <span style={labelStyle}>Source</span>
+            <span style={valueStyle}>{srcSys?.name || iface.source}</span>
+          </div>
+          <div style={{ ...rowStyle, borderBottom: "none" }}>
+            <span style={labelStyle}>Target</span>
+            <span style={valueStyle}>{tgtSys?.name || iface.target}</span>
+          </div>
+        </div>
+
+        {/* Progress Section */}
+        <div style={{ padding: "0 20px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0 10px", borderTop: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Progress</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
+            <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ width: `${progress}%`, height: "100%", background: progress >= 80 ? "linear-gradient(90deg,#22c55e,#16a34a)" : progress >= 40 ? "linear-gradient(90deg,#3b82f6,#2563eb)" : "linear-gradient(90deg,#f59e0b,#d97706)", borderRadius: 4, transition: "width 0.4s ease" }} />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#1f2937", minWidth: 36, textAlign: "right" }}>{progress}%</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "#94a3b8" }}>
+            <span>Requirements: {(iface.requirements || []).length}</span>
+            <span>Verified: {iface.verificationStatus === "success" ? "Yes" : "No"}</span>
+          </div>
+        </div>
+
+        {/* Dates */}
+        <div style={{ padding: "0 20px 20px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 10px", borderTop: "1px solid #e2e8f0" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Dates</span>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Created</div>
+              <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 500 }}>{iface.dateCreated || "—"}</div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Updated</div>
+              <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 500 }}>{iface.dateLastUpdated || "—"}</div>
+            </div>
+          </div>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-        <div style={sectionSt}>
-          <label style={labelSt}>Name</label>
-          {editing && editState ? <input value={editState.name} onChange={e => setEditState(p => ({ ...p, name: e.target.value }))} style={is} />
-            : <div style={{ fontSize: 15, fontWeight: 600, color: "#1e293b" }}>{iface.name}</div>}
-        </div>
-        <div style={{ display: "flex", gap: 12, ...sectionSt }}>
-          <div style={{ flex: 1 }}>
-            <label style={labelSt}>Source</label>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.source) + "15", border: `1px solid ${sysColor(iface.source)}40`, padding: "5px 12px", borderRadius: 12, fontSize: 12.5, fontWeight: 500, color: "#334155" }}>{srcSys?.name || iface.source}</span>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelSt}>Target</label>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.target) + "15", border: `1px solid ${sysColor(iface.target)}40`, padding: "5px 12px", borderRadius: 12, fontSize: 12.5, fontWeight: 500, color: "#334155" }}>{tgtSys?.name || iface.target}</span>
-          </div>
-        </div>
-        <div style={sectionSt}>
-          <label style={labelSt}>Interface Type</label>
-          {editing && editState ? <select value={editState.interfaceType} onChange={e => setEditState(p => ({ ...p, interfaceType: e.target.value }))} style={is}>
-              <option value="">None</option><option value="Electrical">Electrical</option><option value="Mechanical">Mechanical</option><option value="Signal">Signal</option><option value="Data">Data</option>
-            </select>
-            : iface.interfaceType ? <span style={{ background: (typeColors[iface.interfaceType] || { bg: "#f1f5f9" }).bg, color: (typeColors[iface.interfaceType] || { fg: "#475569" }).fg, fontSize: 12, fontWeight: 600, padding: "4px 12px", borderRadius: 12 }}>{iface.interfaceType}</span> : <span style={{ color: "#c0c8d4", fontSize: 13 }}>—</span>}
-        </div>
-        <div style={sectionSt}>
-          <label style={labelSt}>Description</label>
-          {editing && editState ? <textarea value={editState.desc} onChange={e => setEditState(p => ({ ...p, desc: e.target.value }))} rows={4} style={{ ...is, resize: "vertical" }} placeholder="Describe the interface..." />
-            : <div style={{ fontSize: 13, color: iface.desc ? "#475569" : "#c0c8d4", lineHeight: 1.6 }}>{iface.desc || "No description"}</div>}
-        </div>
-        <div style={sectionSt}>
-          <label style={{ ...labelSt, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span>Requirements</span>
-            {editing && editState && <button onClick={() => setReqDropOpen(!reqDropOpen)} style={{ padding: "2px 8px", borderRadius: 5, border: "1px solid #bfdbfe", background: "#eff6ff", fontSize: 10, fontWeight: 600, cursor: "pointer", color: "#2563eb", textTransform: "none", letterSpacing: 0 }}>+ Add</button>}
-          </label>
-          {editing && editState ? <div ref={reqDropRef} style={{ position: "relative" }}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, minHeight: 28 }}>
-                {editState.requirements.length === 0 && <span style={{ color: "#94a3b8", fontSize: 12 }}>No requirements linked</span>}
-                {editState.requirements.map(rId => {
-                  const r = allRequirements.find(x => x.id === rId);
-                  return <span key={rId} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#eff6ff", color: "#2563eb", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, border: "1px solid #bfdbfe" }}>
-                    {r ? `${r.id} ${r.label}` : rId}
-                    <span onClick={e => { e.stopPropagation(); setEditState(p => ({ ...p, requirements: p.requirements.filter(x => x !== rId) })); }} style={{ cursor: "pointer", fontSize: 13, lineHeight: 1, color: "#6b9cf7" }}>×</span>
-                  </span>;
-                })}
-              </div>
-              {reqDropOpen && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10, maxHeight: 220, overflowY: "auto", marginTop: 4 }}>
-                <div style={{ padding: "6px 12px", fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #f1f5f9" }}>Select existing or create new</div>
-                {allRequirements.filter(r => !editState.requirements.includes(r.id)).map(r =>
-                  <div key={r.id} onClick={() => { setEditState(p => ({ ...p, requirements: [...p.requirements, r.id] })); }} style={{ padding: "8px 12px", fontSize: 12, cursor: "pointer", borderBottom: "1px solid #f1f5f9", display: "flex", gap: 6, alignItems: "center" }} onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"} onMouseLeave={e => e.currentTarget.style.background = "#fff"}>
-                    <span style={{ width: 16, height: 16, borderRadius: 4, border: "1.5px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{editState.requirements.includes(r.id) ? <span style={{ fontSize: 11, color: "#2563eb" }}>✓</span> : null}</span>
-                    <span style={{ fontWeight: 600, color: "#334155" }}>{r.id}</span><span style={{ color: "#64748b" }}>{r.label}</span>
-                  </div>
-                )}
-                <div style={{ padding: "8px 12px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 6, alignItems: "center" }}>
-                  <input value={newReqText} onChange={e => setNewReqText(e.target.value)} placeholder="New requirement..." onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter" && newReqText.trim()) { const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setEditState(p => ({ ...p, requirements: [...p.requirements, newId] })); setNewReqText(""); } }} style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 11.5, outline: "none" }} />
-                  <button onClick={e => { e.stopPropagation(); if (!newReqText.trim()) return; const nextNum = Math.max(0, ...allRequirements.map(r => parseInt(r.id.split("-")[1]) || 0)) + 1; const newId = `REQ-${nextNum}`; onAddReq({ id: newId, label: newReqText.trim() }); setEditState(p => ({ ...p, requirements: [...p.requirements, newId] })); setNewReqText(""); }} style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "#2563eb", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Create</button>
-                </div>
-              </div>}
-            </div>
-            : (iface.requirements || []).length > 0 ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {(iface.requirements || []).map(rId => {
-                const r = allRequirements.find(x => x.id === rId);
-                return <span key={rId} style={{ display: "inline-block", background: "#dbeafe", color: "#1e40af", fontSize: 11.5, fontWeight: 600, padding: "4px 10px", borderRadius: 10 }}>{r ? `${r.id} ${r.label}` : rId}</span>;
-              })}
-            </div> : <span style={{ color: "#c0c8d4", fontSize: 13 }}>—</span>}
-        </div>
-        <div style={sectionSt}>
-          <label style={{ ...labelSt, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span>Test Plans</span>
-            {editing && editState && <button onClick={() => setTestPlanDropOpen(!testPlanDropOpen)} style={{ padding: "2px 8px", borderRadius: 5, border: "1px solid #bfdbfe", background: "#eff6ff", fontSize: 10, fontWeight: 600, cursor: "pointer", color: "#2563eb", textTransform: "none", letterSpacing: 0 }}>+ Add</button>}
-          </label>
-          {editing && editState ? <div style={{ position: "relative" }}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, minHeight: 28 }}>
-                {editState.testPlans.length === 0 && <span style={{ color: "#94a3b8", fontSize: 12 }}>No test plans linked</span>}
-                {editState.testPlans.map((tp, tpi) =>
-                  <span key={tpi} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f0fdf4", color: "#166534", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10, border: "1px solid #bbf7d0" }}>
-                    {tp}
-                    <span onClick={() => setEditState(p => ({ ...p, testPlans: p.testPlans.filter((_, i) => i !== tpi) }))} style={{ cursor: "pointer", fontSize: 13, lineHeight: 1, color: "#86efac" }}>×</span>
-                  </span>
-                )}
-              </div>
-              {testPlanDropOpen && <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", zIndex: 10, marginTop: 4 }}>
-                <div style={{ padding: "6px 12px", fontSize: 10, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "1px solid #f1f5f9" }}>Create new test plan</div>
-                <div style={{ padding: "8px 12px", display: "flex", gap: 6, alignItems: "center" }}>
-                  <input value={newTestPlanText} onChange={e => setNewTestPlanText(e.target.value)} placeholder="Test plan name..." onClick={e => e.stopPropagation()} onKeyDown={e => { if (e.key === "Enter" && newTestPlanText.trim()) { setEditState(p => ({ ...p, testPlans: [...p.testPlans, newTestPlanText.trim()] })); setNewTestPlanText(""); setTestPlanDropOpen(false); } }} style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 11.5, outline: "none" }} />
-                  <button onClick={e => { e.stopPropagation(); if (!newTestPlanText.trim()) return; setEditState(p => ({ ...p, testPlans: [...p.testPlans, newTestPlanText.trim()] })); setNewTestPlanText(""); setTestPlanDropOpen(false); }} style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: "#22c55e", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}>Create</button>
-                </div>
-              </div>}
-            </div>
-            : (iface.testPlans || []).length > 0 ? <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {(iface.testPlans || []).map((tp, i) =>
-                <span key={i} style={{ display: "inline-block", background: "#dcfce7", color: "#166534", fontSize: 11.5, fontWeight: 600, padding: "4px 10px", borderRadius: 10 }}>{tp}</span>
-              )}
-            </div> : <span style={{ color: "#c0c8d4", fontSize: 13 }}>—</span>}
-        </div>
-        <div style={sectionSt}>
-          <label style={labelSt}>Owner</label>
-          {editing && editState ? <input value={editState.owner} onChange={e => setEditState(p => ({ ...p, owner: e.target.value }))} style={is} placeholder="Assign owner..." />
-            : <div style={{ fontSize: 13, color: iface.owner ? "#475569" : "#c0c8d4" }}>{iface.owner || "Unassigned"}</div>}
-        </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <label style={labelSt}>Date Created</label>
-            <div style={{ fontSize: 12.5, color: "#475569" }}>{iface.dateCreated || "—"}</div>
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={labelSt}>Last Updated</label>
-            <div style={{ fontSize: 12.5, color: "#475569" }}>{iface.dateLastUpdated || "—"}</div>
-          </div>
-        </div>
-      </div>
-      {editing && editState && <div style={{ padding: "12px 20px", borderTop: "1px solid #f1f5f9", flexShrink: 0 }}>
-        <button onClick={() => onSave(editState)} style={{ width: "100%", padding: "10px 0", borderRadius: 8, border: "none", background: "#2563eb", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Save Changes</button>
-      </div>}
     </div>
-  </>;
+  );
 }
 
 function TableView({ ifaces, allSystems, allRequirements }) {
@@ -1247,7 +1216,7 @@ export default function SERMTool() {
         </div>
         {/* Canvas */}
         {viewMode === "table" && <TableView ifaces={ifaces} allSystems={positioned} allRequirements={allRequirements} />}
-        <div ref={canvasRef} style={{ flex: 1, position: "relative", overflow: "hidden", touchAction: "none", display: viewMode === "architecture" ? undefined : "none" }}>
+        <div ref={canvasRef} style={{ flex: 1, position: "relative", overflow: "hidden", touchAction: "none", display: viewMode === "architecture" ? undefined : "none", transition: "flex 0.25s ease" }}>
           <div style={{ position: "absolute", top: 14, left: 18, zIndex: 10, fontSize: 15, fontWeight: 700, color: "#0f172a", background: "rgba(241,245,249,0.92)", padding: "5px 12px", borderRadius: 7, backdropFilter: "blur(8px)" }}>Architecture View{focusId && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}> (focused)</span>}{connFocusId && <span style={{ fontSize: 11, color: "#2563eb", fontWeight: 500 }}> (connection focus)</span>}</div>
           <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 10, display: "flex", alignItems: "center", gap: 2, background: "#fff", borderRadius: 7, boxShadow: "0 1px 6px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0" }}>
             <button onClick={() => { const r = svgRef.current.getBoundingClientRect(); const cx = r.width / 2, cy = r.height / 2; const nz = Math.min(3, zoom + 0.15); const ratio = nz / zoom; setPan({ x: cx - (cx - pan.x) * ratio, y: cy - (cy - pan.y) * ratio }); setZoom(nz); }} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 15, color: "#475569" }}>+</button>
@@ -1363,9 +1332,9 @@ export default function SERMTool() {
             </g>
           </svg>
         </div>
+        {detailId && (() => { const iface = ifaces.find(i => i.id === detailId); if (!iface) return null; return <DetailPanel iface={iface} allSystems={positioned} onClose={handleDetailClose} />; })()}
       </div>
       {modal && <InterfaceModal mode={modal.mode} sourceId={modal.sourceId} targetId={modal.targetId} allSystems={positioned} allRequirements={allRequirements} onClose={() => setModal(null)} onCreate={handleCreate} onAddReq={r => setAllRequirements(p => [...p, r])} />}
-      {detailId && (() => { const iface = ifaces.find(i => i.id === detailId); if (!iface) return null; return <DetailPanel iface={iface} allSystems={positioned} allRequirements={allRequirements} editing={detailEditing} onEdit={setDetailEditing} onSave={handleDetailSave} onClose={handleDetailClose} onAddReq={r => setAllRequirements(p => [...p, r])} />; })()}
     </div>
   );
 }
