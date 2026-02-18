@@ -1,8 +1,10 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 
 const COLORS = { orange: "#f97316", blue: "#3b82f6", green: "#22c55e", yellow: "#eab308", gray: "#94a3b8" };
-const BW = 200, BH = 56, PAD = 20, HEADER_H = 42, PILL_H = 24, PILL_MIN_W = 80;
-const INTER_BLOCK = 280, ROW_GAP = 140;
+const GRID = 40;
+const BW = 200, BH = 80, PAD = 40, HEADER_H = 40, PILL_H = 24, PILL_MIN_W = 80;
+const INTER_BLOCK = 280, ROW_GAP = 120;
+function snapToGrid(v) { return Math.round(v / GRID) * GRID; }
 
 const hierarchy = [
   { id: "du42", name: "du42", reqs: 1, color: COLORS.yellow },
@@ -42,41 +44,139 @@ function getDescendantIds(nodes, tid) { const ids = []; (function f(l) { for (co
 function getAncestorIds(id, pm) { const a = []; let c = pm[id]; while (c) { a.push(c); c = pm[c]; } return a; }
 function findNode(nodes, id) { for (const n of nodes) { if (n.id === id) return n; if (n.children) { const f = findNode(n.children, id); if (f) return f; } } return null; }
 
-function layoutNode(node, ox, oy, expSet, out) {
+function computeOptimalColumns(n) {
+  if (n <= 2) return n;
+  if (n <= 4) return 2;
+  if (n <= 9) return 3;
+  return 4;
+}
+
+// Count interfaces between two sets of block IDs (including descendants)
+function countIfacesBetween(idA, idB, ifaceList, parentMap) {
+  // Collect all descendant IDs for each block
+  const setA = new Set([idA, ...getDescendantIds(hierarchy, idA)]);
+  const setB = new Set([idB, ...getDescendantIds(hierarchy, idB)]);
+  let count = 0;
+  for (const iface of ifaceList) {
+    if ((setA.has(iface.source) && setB.has(iface.target)) ||
+        (setB.has(iface.source) && setA.has(iface.target))) count++;
+  }
+  return count;
+}
+
+// Compute the minimum gap needed to fit pills between two blocks
+function gapForPills(ifaceCount) {
+  if (ifaceCount === 0) return snapToGrid(GRID * 2); // minimum gap with no interfaces
+  // Pill needs full width + collision padding (16px each side) + breathing room
+  // Longest pill names are ~20 chars → ~152px. Add generous margin.
+  const pillSpace = PILL_MIN_W + GRID * 4; // pill width + margin for collision padding
+  return snapToGrid(Math.max(pillSpace, GRID * 6));
+}
+
+function gapForPillsVertical(ifaceCount) {
+  if (ifaceCount === 0) return snapToGrid(GRID * 3);
+  // Vertical gap: pill height + collision padding + clearance
+  return snapToGrid(Math.max(PILL_H * 2 + GRID * 2, GRID * 4));
+}
+
+function layoutNode(node, ox, oy, expSet, out, ifaceList) {
   const hasKids = !!(node.children?.length);
   const isExp = hasKids && expSet.has(node.id);
   if (!hasKids || !isExp) {
-    const w = BW + (hasKids ? 22 : 0);
-    out[node.id] = { ...node, x: ox, y: oy, w, h: BH, expanded: false, hasChildren: hasKids };
+    const w = snapToGrid(BW + (hasKids ? 22 : 0));
+    out[node.id] = { ...node, x: snapToGrid(ox), y: snapToGrid(oy), w, h: BH, expanded: false, hasChildren: hasKids };
     return { w, h: BH };
   }
-  const kids = node.children, maxPerRow = 4, rows = [];
-  for (let i = 0; i < kids.length; i += maxPerRow) rows.push(kids.slice(i, i + maxPerRow));
+  const kids = node.children;
+  const cols = computeOptimalColumns(kids.length);
   const cs = {}, tmp = {};
-  for (const k of kids) cs[k.id] = layoutNode(k, 0, 0, expSet, tmp);
-  const innerPad = PAD + 10;
-  let totalH = HEADER_H + innerPad, maxRowW = 0;
-  const rm = [];
-  for (const row of rows) {
-    let rw = 0, rh = 0;
-    for (let i = 0; i < row.length; i++) { rw += cs[row[i].id].w; if (i < row.length - 1) rw += INTER_BLOCK; rh = Math.max(rh, cs[row[i].id].h); }
-    rm.push({ rw, rh }); maxRowW = Math.max(maxRowW, rw); totalH += rh + ROW_GAP;
-  }
-  totalH = totalH - ROW_GAP + innerPad + 50;
-  const tW = maxRowW + innerPad * 2;
-  let cy = oy + HEADER_H + innerPad;
+  for (const k of kids) cs[k.id] = layoutNode(k, 0, 0, expSet, tmp, ifaceList);
+  const rows = [];
+  for (let i = 0; i < kids.length; i += cols) rows.push(kids.slice(i, i + cols));
+  const innerPad = PAD;
+
+  // Compute column widths and row heights
+  const colWidths = new Array(cols).fill(0);
+  const rowHeights = new Array(rows.length).fill(0);
   for (let ri = 0; ri < rows.length; ri++) {
-    let cx = ox + innerPad;
-    for (const kid of rows[ri]) { layoutNode(kid, cx, cy, expSet, out); cx += cs[kid.id].w + INTER_BLOCK; }
-    cy += rm[ri].rh + ROW_GAP;
+    for (let ci = 0; ci < rows[ri].length; ci++) {
+      const sz = cs[rows[ri][ci].id];
+      colWidths[ci] = Math.max(colWidths[ci], snapToGrid(sz.w));
+      rowHeights[ri] = Math.max(rowHeights[ri], snapToGrid(sz.h));
+    }
   }
-  out[node.id] = { ...node, x: ox, y: oy, w: tW, h: totalH, expanded: true, hasChildren: true };
-  return { w: tW, h: totalH };
+
+  // Compute dynamic horizontal gaps per column (based on interfaces between adjacent columns)
+  const colGaps = new Array(Math.max(0, cols - 1)).fill(0);
+  for (let ci = 0; ci < cols - 1; ci++) {
+    let maxIfaces = 0;
+    for (let ri = 0; ri < rows.length; ri++) {
+      if (ci < rows[ri].length - 1 && ci + 1 < rows[ri].length) {
+        const a = rows[ri][ci].id, b = rows[ri][ci + 1].id;
+        maxIfaces = Math.max(maxIfaces, countIfacesBetween(a, b, ifaceList));
+      }
+    }
+    // Also count diagonal interfaces (different rows same columns)
+    for (let ri = 0; ri < rows.length; ri++) {
+      for (let rj = 0; rj < rows.length; rj++) {
+        if (ri === rj) continue;
+        if (ci < rows[ri].length && ci + 1 < rows[rj].length) {
+          maxIfaces = Math.max(maxIfaces, countIfacesBetween(rows[ri][ci].id, rows[rj][ci + 1].id, ifaceList));
+        }
+      }
+    }
+    colGaps[ci] = gapForPills(maxIfaces);
+  }
+
+  // Compute dynamic vertical gaps per row
+  const rowGaps = new Array(Math.max(0, rows.length - 1)).fill(0);
+  for (let ri = 0; ri < rows.length - 1; ri++) {
+    let maxIfaces = 0;
+    for (let ci = 0; ci < rows[ri].length; ci++) {
+      if (ri + 1 < rows.length && ci < rows[ri + 1].length) {
+        maxIfaces = Math.max(maxIfaces, countIfacesBetween(rows[ri][ci].id, rows[ri + 1][ci].id, ifaceList));
+      }
+    }
+    rowGaps[ri] = gapForPillsVertical(maxIfaces);
+  }
+
+  // Place children at grid-snapped positions with dynamic gaps
+  let cy = snapToGrid(oy + HEADER_H + innerPad);
+  for (let ri = 0; ri < rows.length; ri++) {
+    let cx = snapToGrid(ox + innerPad);
+    for (let ci = 0; ci < rows[ri].length; ci++) {
+      layoutNode(rows[ri][ci], cx, cy, expSet, out, ifaceList);
+      if (ci < rows[ri].length - 1) {
+        cx = snapToGrid(cx + colWidths[ci] + (colGaps[ci] || gapForPills(0)));
+      }
+    }
+    if (ri < rows.length - 1) {
+      cy = snapToGrid(cy + rowHeights[ri] + (rowGaps[ri] || gapForPillsVertical(0)));
+    } else {
+      cy = snapToGrid(cy + rowHeights[ri]);
+    }
+  }
+  // Compute total width accounting for variable column gaps
+  const totalGapX = colGaps.reduce((a, b) => a + b, 0);
+  const totalW = snapToGrid(colWidths.reduce((a, b) => a + b, 0) + totalGapX + innerPad * 2);
+  const totalH = snapToGrid(cy - oy + innerPad);
+  out[node.id] = { ...node, x: snapToGrid(ox), y: snapToGrid(oy), w: totalW, h: totalH, expanded: true, hasChildren: true };
+  return { w: totalW, h: totalH };
 }
 
-function computeLayout(expSet) {
-  const out = {}; let cx = 80;
-  for (const n of hierarchy) { const r = layoutNode(n, cx, 80, expSet, out); cx += r.w + INTER_BLOCK; }
+function computeLayout(expSet, ifaceList) {
+  const out = {}; let cx = snapToGrid(GRID * 2);
+  const startY = snapToGrid(GRID * 2);
+  // Compute dynamic gaps between root-level systems
+  for (let i = 0; i < hierarchy.length; i++) {
+    const n = hierarchy[i];
+    const r = layoutNode(n, cx, startY, expSet, out, ifaceList);
+    if (i < hierarchy.length - 1) {
+      const nxt = hierarchy[i + 1];
+      const ic = countIfacesBetween(n.id, nxt.id, ifaceList);
+      cx = snapToGrid(cx + r.w + gapForPills(ic));
+    }
+  }
   return out;
 }
 
@@ -120,7 +220,7 @@ function assignDots(ifaces, vis, dotOverrides = {}) {
 
 function computePills(ifaces, vis, dots, offsets) {
   const pills = {}, placed = [];
-  const blockRects = Object.values(vis).filter(s => !(s.expanded && s.hasChildren)).map(b => ({ x: b.x - 16, y: b.y - 16, w: b.w + 32, h: b.h + 32 }));
+  const blockRects = Object.values(vis).filter(s => !(s.expanded && s.hasChildren)).map(b => ({ x: b.x - 8, y: b.y - 8, w: b.w + 16, h: b.h + 16 }));
   for (const iface of ifaces) {
     const da = dots[iface.id]; if (!da) continue;
     const pw = Math.max(iface.name.length * 6.4 + 24, PILL_MIN_W);
@@ -135,10 +235,21 @@ function computePills(ifaces, vis, dots, offsets) {
     if (col(px, py)) {
       const dx = da.t.cx - da.s.cx, dy = da.t.cy - da.s.cy, len = Math.hypot(dx, dy) || 1;
       const nx = -dy / len, ny = dx / len;
+      // Try along the connection direction first (places pill in row/col gaps),
+      // then perpendicular, then diagonals
+      const dirs = [
+        { nx: dx / len, ny: dy / len },       // along connection (finds row/col gaps)
+        { nx, ny },                           // perpendicular
+        { nx: (nx + dx / len) / 1.41, ny: (ny + dy / len) / 1.41 }, // diagonal 1
+        { nx: (nx - dx / len) / 1.41, ny: (ny - dy / len) / 1.41 }, // diagonal 2
+      ];
       let found = false;
-      for (let s = 1; s <= 20 && !found; s++) for (const sg of [1, -1]) {
-        const tx = bx + nx * s * 40 * sg + off.dx, ty = by + ny * s * 40 * sg + off.dy;
-        if (!col(tx, ty)) { px = tx; py = ty; found = true; break; }
+      for (const dir of dirs) {
+        if (found) break;
+        for (let s = 1; s <= 12 && !found; s++) for (const sg of [1, -1]) {
+          const tx = bx + dir.nx * s * GRID * sg + off.dx, ty = by + dir.ny * s * GRID * sg + off.dy;
+          if (!col(tx, ty)) { px = tx; py = ty; found = true; break; }
+        }
       }
     }
     pills[iface.id] = { x: px, y: py, w: pw, h: PILL_H }; placed.push({ x: px, y: py, w: pw, h: PILL_H });
@@ -146,16 +257,169 @@ function computePills(ifaces, vis, dots, offsets) {
   return pills;
 }
 
-// Build a 3-segment orthogonal (H-V-H) path from (sx,sy) to (tx,ty).
-// midX is the x-coordinate of the vertical segment; defaults to horizontal midpoint.
+// Determine if a dot id exits from the top or bottom of a block
+function isVerticalDot(dotId) { return dotId && (dotId[0] === 't' || dotId[0] === 'b'); }
+function isBottomDot(dotId) { return dotId && dotId[0] === 'b'; }
+function isTopDot(dotId) { return dotId && dotId[0] === 't'; }
+function isLeftDot(dotId) { return dotId === 'ml' || dotId === 'l3'; }
+function isRightDot(dotId) { return dotId === 'mr' || dotId === 'r3'; }
+
+// Check if a horizontal line segment at y between x1 and x2 intersects any block rect
+function hSegmentCrossesBlock(y, x1, x2, blocks, margin) {
+  const lo = Math.min(x1, x2), hi = Math.max(x1, x2);
+  const m = margin || 4;
+  for (const b of blocks) {
+    // Does the horizontal line at y cross through block b?
+    if (y > b.y + m && y < b.y + b.h - m && hi > b.x + m && lo < b.x + b.w - m) return true;
+  }
+  return false;
+}
+
+// Check if a vertical line segment at x between y1 and y2 intersects any block rect
+function vSegmentCrossesBlock(x, y1, y2, blocks, margin) {
+  const lo = Math.min(y1, y2), hi = Math.max(y1, y2);
+  const m = margin || 4;
+  for (const b of blocks) {
+    if (x > b.x + m && x < b.x + b.w - m && hi > b.y + m && lo < b.y + b.h - m) return true;
+  }
+  return false;
+}
+
+// Find a clear Y for a horizontal segment between two X coords, starting from a preferred Y
+function findClearY(preferredY, sx, tx, blocks, minY, maxY) {
+  if (!hSegmentCrossesBlock(preferredY, sx, tx, blocks)) return preferredY;
+  // Search outward from preferred Y in grid increments
+  for (let offset = GRID; offset <= GRID * 12; offset += GRID) {
+    const yUp = snapToGrid(preferredY - offset);
+    const yDown = snapToGrid(preferredY + offset);
+    if (yUp >= minY && !hSegmentCrossesBlock(yUp, sx, tx, blocks)) return yUp;
+    if (yDown <= maxY && !hSegmentCrossesBlock(yDown, sx, tx, blocks)) return yDown;
+  }
+  return preferredY; // fallback
+}
+
+// Find a clear X for a vertical segment between two Y coords, starting from a preferred X
+function findClearX(preferredX, sy, ty, blocks, minX, maxX) {
+  if (!vSegmentCrossesBlock(preferredX, sy, ty, blocks)) return preferredX;
+  for (let offset = GRID; offset <= GRID * 12; offset += GRID) {
+    const xLeft = snapToGrid(preferredX - offset);
+    const xRight = snapToGrid(preferredX + offset);
+    if (xLeft >= minX && !vSegmentCrossesBlock(xLeft, sy, ty, blocks)) return xLeft;
+    if (xRight <= maxX && !vSegmentCrossesBlock(xRight, sy, ty, blocks)) return xRight;
+  }
+  return preferredX; // fallback
+}
+
+// Smart orthogonal path that adapts routing based on dot direction.
+// For side dots (ml, mr, l3, r3): exits horizontally first
+// For top/bottom dots (tc, tl, tr, bc, bl, br): exits vertically first
+// When one end is a pill (null dotId), it adapts to the known dot's direction.
+// blockRects: array of {x,y,w,h} for leaf blocks to avoid crossing
+function smartElbowPath(sx, sy, tx, ty, sDotId, tDotId, midOverride, blockRects) {
+  const sVert = isVerticalDot(sDotId);
+  const tVert = isVerticalDot(tDotId);
+  const sKnown = sDotId != null;
+  const tKnown = tDotId != null;
+  const blocks = blockRects || [];
+  const minBound = -2000, maxBound = 8000;
+
+  // Helper: build a V-H-V path, checking that vertical legs don't cross blocks.
+  // If a vertical leg crosses a block, detour horizontally around it (5-segment path).
+  function vhvPath(x1, y1, x2, y2, mid) {
+    const my = mid !== undefined ? mid : findClearY(snapToGrid((y1 + y2) / 2), x1, x2, blocks, minBound, maxBound);
+    const v1Cross = vSegmentCrossesBlock(x1, y1, my, blocks);
+    const v2Cross = vSegmentCrossesBlock(x2, my, y2, blocks);
+    if (!v1Cross && !v2Cross) {
+      return `M${x1},${y1} L${x1},${my} L${x2},${my} L${x2},${y2}`;
+    }
+    // Detour: find a clear X channel to route the vertical leg around blocks
+    if (v1Cross) {
+      // Route: go short V from source, then H to clear channel, then V down, then H to target X, then V to target
+      const exitY = isBottomDot(sDotId) ? snapToGrid(y1 + GRID) : snapToGrid(y1 - GRID);
+      const clearX = findClearX(snapToGrid(x1 - GRID * 2), exitY, my, blocks, minBound, maxBound);
+      return `M${x1},${y1} L${x1},${exitY} L${clearX},${exitY} L${clearX},${my} L${x2},${my} L${x2},${y2}`;
+    }
+    if (v2Cross) {
+      const entryY = isTopDot(tDotId) ? snapToGrid(y2 - GRID) : snapToGrid(y2 + GRID);
+      const clearX = findClearX(snapToGrid(x2 + GRID * 2), my, entryY, blocks, minBound, maxBound);
+      return `M${x1},${y1} L${x1},${my} L${clearX},${my} L${clearX},${entryY} L${x2},${entryY} L${x2},${y2}`;
+    }
+    return `M${x1},${y1} L${x1},${my} L${x2},${my} L${x2},${y2}`;
+  }
+
+  // Helper: build an H-V-H path, checking that horizontal legs don't cross blocks.
+  function hvhPath(x1, y1, x2, y2, mid) {
+    const mx = mid !== undefined ? mid : findClearX(snapToGrid((x1 + x2) / 2), y1, y2, blocks, minBound, maxBound);
+    const h1Cross = hSegmentCrossesBlock(y1, x1, mx, blocks);
+    const h2Cross = hSegmentCrossesBlock(y2, mx, x2, blocks);
+    if (!h1Cross && !h2Cross) {
+      return `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+    }
+    if (h1Cross) {
+      const exitX = isRightDot(sDotId) ? snapToGrid(x1 + GRID) : snapToGrid(x1 - GRID);
+      const clearY = findClearY(snapToGrid(y1 - GRID * 2), exitX, mx, blocks, minBound, maxBound);
+      return `M${x1},${y1} L${exitX},${y1} L${exitX},${clearY} L${mx},${clearY} L${mx},${y2} L${x2},${y2}`;
+    }
+    if (h2Cross) {
+      const entryX = isLeftDot(tDotId) ? snapToGrid(x2 - GRID) : snapToGrid(x2 + GRID);
+      const clearY = findClearY(snapToGrid(y2 + GRID * 2), mx, entryX, blocks, minBound, maxBound);
+      return `M${x1},${y1} L${mx},${y1} L${mx},${clearY} L${entryX},${clearY} L${entryX},${y2} L${x2},${y2}`;
+    }
+    return `M${x1},${y1} L${mx},${y1} L${mx},${y2} L${x2},${y2}`;
+  }
+
+  // Source→Pill (tDotId is null): route based on source dot direction
+  if (sKnown && !tKnown) {
+    if (sVert) {
+      const mid = midOverride !== undefined ? midOverride : undefined;
+      return vhvPath(sx, sy, tx, ty, mid);
+    } else {
+      const mid = midOverride !== undefined ? midOverride : undefined;
+      return hvhPath(sx, sy, tx, ty, mid);
+    }
+  }
+
+  // Pill→Target (sDotId is null): route based on target dot direction
+  if (!sKnown && tKnown) {
+    if (tVert) {
+      const mid = midOverride !== undefined ? midOverride : undefined;
+      return vhvPath(sx, sy, tx, ty, mid);
+    } else {
+      const mid = midOverride !== undefined ? midOverride : undefined;
+      return hvhPath(sx, sy, tx, ty, mid);
+    }
+  }
+
+  // Both dots known: full block-to-block connection
+  if (sVert && tVert) {
+    const mid = midOverride !== undefined ? midOverride : undefined;
+    return vhvPath(sx, sy, tx, ty, mid);
+  }
+  if (!sVert && !tVert) {
+    const mid = midOverride !== undefined ? midOverride : undefined;
+    return hvhPath(sx, sy, tx, ty, mid);
+  }
+  // Mixed: source vertical, target horizontal — L-shape
+  if (sVert && !tVert) {
+    if (!vSegmentCrossesBlock(sx, sy, ty, blocks) && !hSegmentCrossesBlock(ty, sx, tx, blocks)) {
+      return `M${sx},${sy} L${sx},${ty} L${tx},${ty}`;
+    }
+    return vhvPath(sx, sy, tx, ty);
+  }
+  // Mixed: source horizontal, target vertical — L-shape
+  if (!vSegmentCrossesBlock(tx, sy, ty, blocks) && !hSegmentCrossesBlock(sy, sx, tx, blocks)) {
+    return `M${sx},${sy} L${tx},${sy} L${tx},${ty}`;
+  }
+  return hvhPath(sx, sy, tx, ty);
+}
+
+// Legacy H-V-H path (used for preview lines where dot IDs are unknown)
 function elbowPath(sx, sy, tx, ty, midX) {
   const mx = midX !== undefined ? midX : (sx + tx) / 2;
   return `M${sx},${sy} L${mx},${sy} L${mx},${ty} L${tx},${ty}`;
 }
 
 // Returns an array of SVG path segment descriptors for the elbow:
-// [{type:'H', from:[sx,sy], to:[mx,sy]}, {type:'V', from:[mx,sy], to:[mx,ty]}, {type:'H', from:[mx,ty], to:[tx,ty]}]
-// Useful for making individual segments draggable.
 function elbowSegments(sx, sy, tx, ty, midX) {
   const mx = midX !== undefined ? midX : (sx + tx) / 2;
   return [
@@ -599,13 +863,14 @@ export default function SERMTool() {
   const viewStatesRef = useRef(viewStates); viewStatesRef.current = viewStates;
   const dotOverridesRef = useRef(dotOverrides); dotOverridesRef.current = dotOverrides;
   const initialCentered = useRef(false);
+  const rawDragAccum = useRef({});
   const [centerTrigger, setCenterTrigger] = useState(0);
   const parentMap = useMemo(() => buildParentMap(hierarchy, null), []);
 
   useEffect(() => { if (!canvasRef.current) return; const ro = new ResizeObserver(e => { for (const en of e) setViewSize({ w: en.contentRect.width, h: en.contentRect.height }); }); ro.observe(canvasRef.current); return () => ro.disconnect(); }, []);
   useEffect(() => { if (!selId) return; const iface = ifaces.find(i => i.id === selId); if (!iface) return; setSbExp(p => { const n = new Set(p); [iface.source, iface.target].forEach(s => { n.add(s); getAncestorIds(s, parentMap).forEach(a => n.add(a)); }); return n; }); }, [selId, ifaces, parentMap]);
 
-  const baseLayout = useMemo(() => computeLayout(expanded), [expanded]);
+  const baseLayout = useMemo(() => computeLayout(expanded, ifaces), [expanded, ifaces]);
 
   const positioned = useMemo(() => {
     const p = {};
@@ -616,7 +881,7 @@ export default function SERMTool() {
       const par = p[pid]; const cids = (par.children || []).map(c => c.id); if (!cids.length) continue;
       let mnX = Infinity, mnY = Infinity, mxX = -Infinity, mxY = -Infinity;
       for (const cid of cids) { const c = p[cid]; if (!c) continue; mnX = Math.min(mnX, c.x); mnY = Math.min(mnY, c.y); mxX = Math.max(mxX, c.x + c.w); mxY = Math.max(mxY, c.y + c.h); }
-      p[pid] = { ...par, x: mnX - PAD, y: mnY - HEADER_H - PAD, w: mxX - mnX + PAD * 2, h: mxY - mnY + HEADER_H + PAD * 2 + 50 };
+      p[pid] = { ...par, x: snapToGrid(mnX - PAD), y: snapToGrid(mnY - HEADER_H - PAD), w: snapToGrid(mxX - mnX + PAD * 2), h: snapToGrid(mxY - mnY + HEADER_H + PAD * 2 + GRID) };
     }
     return p;
   }, [baseLayout, dragOffsets, parentMap]);
@@ -742,18 +1007,34 @@ export default function SERMTool() {
       if (dragging) {
         const dx = (e.clientX - dragRef.current.x) / zoom, dy = (e.clientY - dragRef.current.y) / zoom;
         dragRef.current = { x: e.clientX, y: e.clientY };
-        const desc = getDescendantIds(hierarchy, dragging);
-        setDragOffsets(prev => { const n = { ...prev }; for (const m of [dragging, ...desc]) { const o = n[m] || { dx: 0, dy: 0 }; n[m] = { dx: o.dx + dx, dy: o.dy + dy }; } return n; });
+        // Accumulate raw delta, snap to grid, compute step delta
+        const acc = rawDragAccum.current;
+        if (!acc.raw) acc.raw = { dx: 0, dy: 0 };
+        if (!acc.lastSnap) acc.lastSnap = { dx: 0, dy: 0 };
+        acc.raw.dx += dx; acc.raw.dy += dy;
+        const snappedDx = snapToGrid(acc.raw.dx);
+        const snappedDy = snapToGrid(acc.raw.dy);
+        const stepDx = snappedDx - acc.lastSnap.dx;
+        const stepDy = snappedDy - acc.lastSnap.dy;
+        if (stepDx !== 0 || stepDy !== 0) {
+          acc.lastSnap = { dx: snappedDx, dy: snappedDy };
+          const desc = getDescendantIds(hierarchy, dragging);
+          setDragOffsets(prev => {
+            const n = { ...prev };
+            for (const m of [dragging, ...desc]) { const o = n[m] || { dx: 0, dy: 0 }; n[m] = { dx: o.dx + stepDx, dy: o.dy + stepDy }; }
+            return n;
+          });
+        }
       }
       if (draggingPill && pillDragStart) {
         const dx = (e.clientX - pillDragStart.x) / zoom, dy = (e.clientY - pillDragStart.y) / zoom;
-        const sdx = Math.round((pillDragStart.off.dx + dx) / 28) * 28;
-        const sdy = Math.round((pillDragStart.off.dy + dy) / 28) * 28;
+        const sdx = Math.round((pillDragStart.off.dx + dx) / GRID) * GRID;
+        const sdy = Math.round((pillDragStart.off.dy + dy) / GRID) * GRID;
         setPillOffsets(prev => ({ ...prev, [draggingPill]: { dx: sdx, dy: sdy } }));
       }
       if (draggingLine && lineDragStart) {
         const dx = (e.clientX - lineDragStart.x) / zoom;
-        const newMidX = Math.round((lineDragStart.startMidX + dx) / 1) * 1;
+        const newMidX = snapToGrid(lineDragStart.startMidX + dx);
         setLineOffsets(prev => ({ ...prev, [draggingLine]: newMidX }));
       }
       if (draggingDot) {
@@ -783,6 +1064,7 @@ export default function SERMTool() {
         if (tid) setModal({ mode: "drag", sourceId: connecting.sourceId, targetId: tid });
         setConnecting(null);
       }
+      if (dragging) { rawDragAccum.current = {}; }
       setDragging(null); setPanSt(false); setDraggingPill(null); setPillDragStart(null); setDraggingLine(null); setLineDragStart(null);
     };
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
@@ -819,6 +1101,7 @@ export default function SERMTool() {
 
   const containers = Object.values(visible).filter(s => s.expanded && s.hasChildren).sort((a, b) => getAncestorIds(a.id, parentMap).length - getAncestorIds(b.id, parentMap).length);
   const leaves = Object.values(visible).filter(s => !(s.expanded && s.hasChildren));
+  const leafRects = useMemo(() => leaves.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h })), [leaves]);
 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", margin: 0, padding: 0, fontFamily: "'DM Sans',sans-serif", background: "#f1f5f9", overflow: "hidden" }}>
@@ -871,12 +1154,13 @@ export default function SERMTool() {
             <div style={{ width: 1, height: 18, background: "#e2e8f0" }} />
             <button onClick={() => { const r = svgRef.current.getBoundingClientRect(); const cx = r.width / 2, cy = r.height / 2; const nz = Math.max(0.15, zoom - 0.15); const ratio = nz / zoom; setPan({ x: cx - (cx - pan.x) * ratio, y: cy - (cy - pan.y) * ratio }); setZoom(nz); }} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 15, color: "#475569" }}>−</button>
           </div>
+          <button onClick={() => { setDragOffsets({}); setPillOffsets({}); setLineOffsets({}); setDotOverrides({}); rawDragAccum.current = {}; setCenterTrigger(c => c + 1); }} style={{ position: "absolute", bottom: 16, right: 190, zIndex: 10, padding: "6px 12px", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: 11, fontWeight: 600, color: "#475569", cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>Auto Layout</button>
           <MiniMap blocks={visible} pan={pan} zoom={zoom} vw={viewSize.w} vh={viewSize.h} />
           <div style={{ position: "absolute", bottom: 16, left: 18, zIndex: 10, fontSize: 10, color: "#94a3b8", background: "rgba(255,255,255,0.9)", padding: "3px 9px", borderRadius: 5, border: "1px solid #e8ebef" }}>Double-click expand/collapse · Drag dots to connect · Drag pills to reposition</div>
           <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} style={{ background: "#f1f5f9", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
             <defs>
               <filter id="bs" x="-4%" y="-4%" width="108%" height="116%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodOpacity="0.05" /></filter>
-              <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform={`translate(${pan.x},${pan.y}) scale(${zoom})`}><circle cx="10" cy="10" r="1.2" fill="#b0b8c4" opacity="0.45" /></pattern>
+              <pattern id="grid" width={GRID} height={GRID} patternUnits="userSpaceOnUse" patternTransform={`translate(${pan.x},${pan.y}) scale(${zoom})`}><circle cx={GRID / 2} cy={GRID / 2} r="1.2" fill="#b0b8c4" opacity="0.45" /></pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
@@ -899,11 +1183,16 @@ export default function SERMTool() {
                 if (!da || !pill) return null;
                 const pcx = pill.x + pill.w / 2, pcy = pill.y + pill.h / 2;
                 const isAct = selId === iface.id || hovId === iface.id || blockRelIfaceIds.has(iface.id);
+                const sDotId = da.s.id, tDotId = da.t.id;
+                // Source→Pill path: source dot determines exit direction, pill is flexible endpoint
+                const sPath = smartElbowPath(da.s.cx, da.s.cy, pcx, pcy, sDotId, null, undefined, leafRects);
+                // Pill→Target path: pill is flexible start, target dot determines entry direction
+                const tPath = smartElbowPath(pcx, pcy, da.t.cx, da.t.cy, null, tDotId, undefined, leafRects);
                 return <g key={iface.id}>
-                  <path d={elbowPath(da.s.cx, da.s.cy, pcx, pcy)} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
-                  <path d={elbowPath(pcx, pcy, da.t.cx, da.t.cy)} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
-                  <path d={elbowPath(da.s.cx, da.s.cy, pcx, pcy)} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
-                  <path d={elbowPath(pcx, pcy, da.t.cx, da.t.cy)} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
+                  <path d={sPath} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
+                  <path d={tPath} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
+                  <path d={sPath} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
+                  <path d={tPath} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
                   <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { const nid = selId === iface.id ? null : iface.id; setSelId(nid); setSelBlockId(null); setDetailId(nid); setDetailEditing(false); }} />
                   <text x={pcx} y={pcy + 3.5} textAnchor="middle" fontSize={10} fontFamily="'DM Sans',sans-serif" fontWeight={isAct ? 600 : 500} fill={isAct ? "#fff" : "#64748b"} style={{ pointerEvents: "none" }}>{iface.name}</text>
                 </g>;
