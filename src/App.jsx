@@ -448,23 +448,23 @@ const initRequirements = [
 ];
 
 const initIfaces = [
-  { id: "INT-1", source: "stage-1", target: "ground-station", name: "Stage 1 → Ground Stn", desc: "Telemetry downlink from Stage 1 to Ground Station", interfaceType: "Signal", requirements: ["REQ-78"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Yoon flow test", progress: 85 },
-  { id: "INT-2", source: "ground-station", target: "stage-2", name: "Ground Stn → Stage 2", desc: "Command uplink to Stage 2", interfaceType: "Signal", requirements: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14", verificationStatus: "unknown", maturityLevel: "defined", owner: "", team: "Yoon flow test", progress: 40 },
-  { id: "INT-3", source: "s1-avionics", target: "s1-propulsion", name: "Avionics → Propulsion", desc: "Engine control commands and thrust vector data", interfaceType: "Mechanical", requirements: ["REQ-110"], dateCreated: "2025-05-12", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Propulsion team", progress: 100 },
-  { id: "INT-5", source: "example", target: "stage-2", name: "Example → Stage 2", desc: "", interfaceType: "", requirements: [], dateCreated: "2024-12-02", dateLastUpdated: "2025-08-10", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "", progress: 0 },
-  { id: "INT-6", source: "s1-propulsion", target: "s1-structures", name: "Propulsion → Structures", desc: "Thrust load transfer interface", interfaceType: "Mechanical", requirements: ["REQ-62", "REQ-67"], dateCreated: "2024-11-15", dateLastUpdated: "2025-07-22", verificationStatus: "fail", maturityLevel: "defined", owner: "Yoon Bae", team: "Structures team", progress: 55 },
-  { id: "INT-7", source: "s2-avionics", target: "s2-propulsion", name: "S2 Avio → S2 Propulsion", desc: "Flight computer to engine controller", interfaceType: "Electrical", requirements: ["REQ-78"], dateCreated: "2025-01-10", dateLastUpdated: "2025-06-18", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Avionics team", progress: 90 },
-  { id: "INT-8", source: "s2-propulsion", target: "s2-structures", name: "S2 Propulsion → Structures", desc: "Upper stage thrust loads", interfaceType: "Mechanical", requirements: ["REQ-67"], dateCreated: "2025-02-05", dateLastUpdated: "2025-09-03", verificationStatus: "unknown", maturityLevel: "defined", owner: "", team: "Structures team", progress: 30 },
-  { id: "INT-9", source: "s1-avionics", target: "s1-payload", name: "Avionics → Payload", desc: "Payload telemetry relay", interfaceType: "Signal", requirements: [], dateCreated: "2025-04-20", dateLastUpdated: "2025-04-20", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "", progress: 10 },
-  { id: "INT-10", source: "s2-avionics", target: "s2-navigation", name: "S2 Avio → Navigation", desc: "Inertial navigation data feed", interfaceType: "Signal", requirements: ["REQ-101"], dateCreated: "2025-03-14", dateLastUpdated: "2025-08-29", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Navigation team", progress: 75 },
-  { id: "INT-11", source: "s2-navigation", target: "s2-attitude", name: "Navigation → Attitude Ctrl", desc: "Attitude correction commands from nav system", interfaceType: "Signal", requirements: ["REQ-101"], dateCreated: "2025-05-01", dateLastUpdated: "2025-10-07", verificationStatus: "fail", maturityLevel: "concept", owner: "", team: "GNC team", progress: 20 },
-  { id: "INT-12", source: "s2-avionics", target: "s2-data-handling", name: "S2 Avio → Data Handling", desc: "Onboard data bus interface", interfaceType: "Electrical", requirements: ["REQ-78"], dateCreated: "2025-06-12", dateLastUpdated: "2025-06-12", verificationStatus: "unknown", maturityLevel: "defined", owner: "Yoon Bae", team: "Avionics team", progress: 50 },
-  { id: "INT-13", source: "s2-separation", target: "s2-structures", name: "Separation → Structures", desc: "Stage separation mechanism mounting", interfaceType: "Mechanical", requirements: ["REQ-67", "REQ-110"], dateCreated: "2025-01-28", dateLastUpdated: "2025-07-15", verificationStatus: "success", maturityLevel: "defined", owner: "Yoon Bae", team: "Structures team", progress: 65 },
-  { id: "INT-14", source: "s2-payload-fairing", target: "s2-structures", name: "Fairing → Structures", desc: "Fairing attachment points", interfaceType: "Mechanical", requirements: ["REQ-62"], dateCreated: "2025-03-05", dateLastUpdated: "2025-09-20", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "Structures team", progress: 15 },
-  { id: "INT-24", source: "stage-1", target: "stage-2", name: "Stage 1 → Stage 2", desc: "Inter-stage structural and electrical interface", interfaceType: "Mechanical", requirements: ["REQ-78", "REQ-67"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Integration team", progress: 95 },
-  { id: "INT-25", source: "stage-2", target: "stage-1", name: "Stage 2 → Stage 1", desc: "Staging separation signal", interfaceType: "Signal", requirements: ["REQ-110"], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14", verificationStatus: "fail", maturityLevel: "defined", owner: "", team: "Integration team", progress: 35 },
-  { id: "INT-30", source: "s1-avionics", target: "s2-avionics", name: "S1 Avio → S2 Avio", desc: "Cross-stage avionics data link", interfaceType: "Signal", requirements: ["REQ-78"], dateCreated: "2025-05-28", dateLastUpdated: "2025-05-28", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "Avionics team", progress: 5 },
-  { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "External data uplink", interfaceType: "Electrical", requirements: ["REQ-67"], dateCreated: "2025-02-19", dateLastUpdated: "2025-05-18", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Ground ops", progress: 80 },
+  { id: "INT-1", source: "stage-1", target: "ground-station", name: "Stage 1 → Ground Stn", desc: "Telemetry downlink from Stage 1 to Ground Station", interfaceType: "Signal", requirements: ["REQ-78"], testPlans: ["Telemetry link budget test", "End-to-end signal path verification"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Yoon flow test", progress: 85 },
+  { id: "INT-2", source: "ground-station", target: "stage-2", name: "Ground Stn → Stage 2", desc: "Command uplink to Stage 2", interfaceType: "Signal", requirements: [], testPlans: [], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14", verificationStatus: "unknown", maturityLevel: "defined", owner: "", team: "Yoon flow test", progress: 40 },
+  { id: "INT-3", source: "s1-avionics", target: "s1-propulsion", name: "Avionics → Propulsion", desc: "Engine control commands and thrust vector data", interfaceType: "Mechanical", requirements: ["REQ-110"], testPlans: ["Thrust vector control loop test", "Engine start sequence validation"], dateCreated: "2025-05-12", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Propulsion team", progress: 100 },
+  { id: "INT-5", source: "example", target: "stage-2", name: "Example → Stage 2", desc: "", interfaceType: "", requirements: [], testPlans: [], dateCreated: "2024-12-02", dateLastUpdated: "2025-08-10", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "", progress: 0 },
+  { id: "INT-6", source: "s1-propulsion", target: "s1-structures", name: "Propulsion → Structures", desc: "Thrust load transfer interface", interfaceType: "Mechanical", requirements: ["REQ-62", "REQ-67"], testPlans: ["Static fire load measurement"], dateCreated: "2024-11-15", dateLastUpdated: "2025-07-22", verificationStatus: "fail", maturityLevel: "defined", owner: "Yoon Bae", team: "Structures team", progress: 55 },
+  { id: "INT-7", source: "s2-avionics", target: "s2-propulsion", name: "S2 Avio → S2 Propulsion", desc: "Flight computer to engine controller", interfaceType: "Electrical", requirements: ["REQ-78"], testPlans: ["Electrical continuity test", "Command latency benchmark"], dateCreated: "2025-01-10", dateLastUpdated: "2025-06-18", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Avionics team", progress: 90 },
+  { id: "INT-8", source: "s2-propulsion", target: "s2-structures", name: "S2 Propulsion → Structures", desc: "Upper stage thrust loads", interfaceType: "Mechanical", requirements: ["REQ-67"], testPlans: [], dateCreated: "2025-02-05", dateLastUpdated: "2025-09-03", verificationStatus: "unknown", maturityLevel: "defined", owner: "", team: "Structures team", progress: 30 },
+  { id: "INT-9", source: "s1-avionics", target: "s1-payload", name: "Avionics → Payload", desc: "Payload telemetry relay", interfaceType: "Signal", requirements: [], testPlans: [], dateCreated: "2025-04-20", dateLastUpdated: "2025-04-20", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "", progress: 10 },
+  { id: "INT-10", source: "s2-avionics", target: "s2-navigation", name: "S2 Avio → Navigation", desc: "Inertial navigation data feed", interfaceType: "Signal", requirements: ["REQ-101"], testPlans: ["INS drift rate validation"], dateCreated: "2025-03-14", dateLastUpdated: "2025-08-29", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Navigation team", progress: 75 },
+  { id: "INT-11", source: "s2-navigation", target: "s2-attitude", name: "Navigation → Attitude Ctrl", desc: "Attitude correction commands from nav system", interfaceType: "Signal", requirements: ["REQ-101"], testPlans: ["Attitude loop response test"], dateCreated: "2025-05-01", dateLastUpdated: "2025-10-07", verificationStatus: "fail", maturityLevel: "concept", owner: "", team: "GNC team", progress: 20 },
+  { id: "INT-12", source: "s2-avionics", target: "s2-data-handling", name: "S2 Avio → Data Handling", desc: "Onboard data bus interface", interfaceType: "Electrical", requirements: ["REQ-78"], testPlans: ["Bus throughput stress test"], dateCreated: "2025-06-12", dateLastUpdated: "2025-06-12", verificationStatus: "unknown", maturityLevel: "defined", owner: "Yoon Bae", team: "Avionics team", progress: 50 },
+  { id: "INT-13", source: "s2-separation", target: "s2-structures", name: "Separation → Structures", desc: "Stage separation mechanism mounting", interfaceType: "Mechanical", requirements: ["REQ-67", "REQ-110"], testPlans: ["Separation shock test", "Bolt cutter pyro validation"], dateCreated: "2025-01-28", dateLastUpdated: "2025-07-15", verificationStatus: "success", maturityLevel: "defined", owner: "Yoon Bae", team: "Structures team", progress: 65 },
+  { id: "INT-14", source: "s2-payload-fairing", target: "s2-structures", name: "Fairing → Structures", desc: "Fairing attachment points", interfaceType: "Mechanical", requirements: ["REQ-62"], testPlans: [], dateCreated: "2025-03-05", dateLastUpdated: "2025-09-20", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "Structures team", progress: 15 },
+  { id: "INT-24", source: "stage-1", target: "stage-2", name: "Stage 1 → Stage 2", desc: "Inter-stage structural and electrical interface", interfaceType: "Mechanical", requirements: ["REQ-78", "REQ-67"], testPlans: ["Inter-stage separation test", "Structural load path analysis"], dateCreated: "2024-12-08", dateLastUpdated: "2025-08-10", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Integration team", progress: 95 },
+  { id: "INT-25", source: "stage-2", target: "stage-1", name: "Stage 2 → Stage 1", desc: "Staging separation signal", interfaceType: "Signal", requirements: ["REQ-110"], testPlans: ["Staging signal timing test"], dateCreated: "2025-03-26", dateLastUpdated: "2025-10-14", verificationStatus: "fail", maturityLevel: "defined", owner: "", team: "Integration team", progress: 35 },
+  { id: "INT-30", source: "s1-avionics", target: "s2-avionics", name: "S1 Avio → S2 Avio", desc: "Cross-stage avionics data link", interfaceType: "Signal", requirements: ["REQ-78"], testPlans: [], dateCreated: "2025-05-28", dateLastUpdated: "2025-05-28", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "Avionics team", progress: 5 },
+  { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "External data uplink", interfaceType: "Electrical", requirements: ["REQ-67"], testPlans: ["Uplink bandwidth test", "Protocol compliance check"], dateCreated: "2025-02-19", dateLastUpdated: "2025-05-18", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Ground ops", progress: 80 },
 ];
 
 function MiniMap({ blocks, pan, zoom, vw, vh }) {
@@ -583,10 +583,14 @@ function InterfaceModal({ mode, sourceId, targetId, allSystems, allRequirements,
   </div>;
 }
 
-function DetailPanel({ iface, allSystems, onClose }) {
+function DetailPanel({ iface, allSystems, allRequirements, onClose }) {
+  const [reqOpen, setReqOpen] = useState(true);
+  const [testOpen, setTestOpen] = useState(true);
+
   useEffect(() => { const h = (e) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
 
   const srcSys = allSystems[iface.source], tgtSys = allSystems[iface.target];
+  const sysColor = (id) => allSystems[id]?.color || "#94a3b8";
 
   const verificationConfig = {
     success: { label: "Success", color: "#16a34a", bg: "#f0fdf4", icon: "✓" },
@@ -598,14 +602,21 @@ function DetailPanel({ iface, allSystems, onClose }) {
     defined: { label: "Defined", color: "#8b5cf6", bg: "#f5f3ff", icon: "◆" },
     verified: { label: "Verified", color: "#16a34a", bg: "#f0fdf4", icon: "◆" },
   };
+  const typeColors = { Electrical: { bg: "#fef3c7", fg: "#92400e" }, Mechanical: { bg: "#dcfce7", fg: "#166534" }, Signal: { bg: "#fce7f3", fg: "#9d174d" }, Data: { bg: "#e0e7ff", fg: "#3730a3" } };
 
   const vs = verificationConfig[iface.verificationStatus] || verificationConfig.unknown;
   const ml = maturityConfig[iface.maturityLevel] || maturityConfig.concept;
+  const tc = typeColors[iface.interfaceType] || { bg: "#f1f5f9", fg: "#475569" };
   const progress = iface.progress || 0;
+  const reqs = (iface.requirements || []).map(rId => allRequirements.find(r => r.id === rId) || { id: rId, label: "" });
+  const tests = iface.testPlans || [];
 
   const rowStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f1f5f9" };
   const labelStyle = { fontSize: 13, color: "#6b7280", fontWeight: 500 };
   const valueStyle = { fontSize: 13, color: "#1f2937", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 };
+  const sectionHeaderStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0 8px", cursor: "pointer", userSelect: "none" };
+  const sectionLabelStyle = { fontSize: 12, fontWeight: 600, color: "#9ca3af" };
+  const chevronStyle = (open) => ({ fontSize: 9, color: "#b0b8c4", transition: "transform 0.15s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" });
 
   return (
     <div style={{ width: 380, background: "#fff", borderLeft: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0, fontFamily: "'DM Sans',sans-serif", overflow: "hidden" }}>
@@ -623,7 +634,7 @@ function DetailPanel({ iface, allSystems, onClose }) {
         {/* Properties Section */}
         <div style={{ padding: "4px 20px 0" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 6px" }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Properties</span>
+            <span style={sectionLabelStyle}>Properties</span>
           </div>
 
           {/* Verification Status */}
@@ -643,10 +654,12 @@ function DetailPanel({ iface, allSystems, onClose }) {
           </div>
 
           {/* Interface Type */}
-          {iface.interfaceType && <div style={rowStyle}>
+          <div style={rowStyle}>
             <span style={labelStyle}>Type</span>
-            <span style={{ ...valueStyle, fontSize: 13 }}>{iface.interfaceType}</span>
-          </div>}
+            {iface.interfaceType
+              ? <span style={{ ...valueStyle, background: tc.bg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: tc.fg }}>{iface.interfaceType}</span>
+              : <span style={{ fontSize: 13, color: "#c0c8d4" }}>—</span>}
+          </div>
 
           {/* Owner */}
           <div style={rowStyle}>
@@ -670,21 +683,74 @@ function DetailPanel({ iface, allSystems, onClose }) {
             ) : <span style={{ fontSize: 13, color: "#c0c8d4" }}>No team</span>}
           </div>
 
-          {/* Source / Target */}
+          {/* Source System */}
           <div style={rowStyle}>
             <span style={labelStyle}>Source</span>
-            <span style={valueStyle}>{srcSys?.name || iface.source}</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.source) + "15", border: `1px solid ${sysColor(iface.source)}35`, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: "#334155" }}>
+              <span style={{ width: 8, height: 8, borderRadius: 4, background: sysColor(iface.source) }} />
+              {srcSys?.name || iface.source}
+            </span>
           </div>
+
+          {/* Target System */}
           <div style={{ ...rowStyle, borderBottom: "none" }}>
             <span style={labelStyle}>Target</span>
-            <span style={valueStyle}>{tgtSys?.name || iface.target}</span>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.target) + "15", border: `1px solid ${sysColor(iface.target)}35`, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: "#334155" }}>
+              <span style={{ width: 8, height: 8, borderRadius: 4, background: sysColor(iface.target) }} />
+              {tgtSys?.name || iface.target}
+            </span>
           </div>
+        </div>
+
+        {/* Requirements Section */}
+        <div style={{ padding: "0 20px" }}>
+          <div style={sectionHeaderStyle} onClick={() => setReqOpen(o => !o)}>
+            <span style={sectionLabelStyle}>
+              Requirements
+              <span style={{ marginLeft: 6, fontSize: 11, color: "#b0b8c4", fontWeight: 500 }}>{reqs.length}</span>
+            </span>
+            <span style={chevronStyle(reqOpen)}>▶</span>
+          </div>
+          {reqOpen && (
+            reqs.length > 0 ? <div style={{ paddingBottom: 8 }}>
+              {reqs.map(r => (
+                <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", marginBottom: 3, borderRadius: 7, background: "#f8fafc", border: "1px solid #f1f5f9" }}>
+                  <span style={{ width: 16, height: 16, borderRadius: 4, border: "1.5px solid #cbd5e1", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 9, color: "#94a3b8" }}>☐</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", flexShrink: 0 }}>{r.id}</span>
+                  <span style={{ fontSize: 12, color: "#475569", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</span>
+                </div>
+              ))}
+            </div>
+            : <div style={{ padding: "4px 0 12px", fontSize: 12.5, color: "#c0c8d4" }}>No requirements linked</div>
+          )}
+        </div>
+
+        {/* Tests Section */}
+        <div style={{ padding: "0 20px" }}>
+          <div style={sectionHeaderStyle} onClick={() => setTestOpen(o => !o)}>
+            <span style={sectionLabelStyle}>
+              Tests
+              <span style={{ marginLeft: 6, fontSize: 11, color: "#b0b8c4", fontWeight: 500 }}>{tests.length}</span>
+            </span>
+            <span style={chevronStyle(testOpen)}>▶</span>
+          </div>
+          {testOpen && (
+            tests.length > 0 ? <div style={{ paddingBottom: 8 }}>
+              {tests.map((tp, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", marginBottom: 3, borderRadius: 7, background: "#f0fdf4", border: "1px solid #dcfce7" }}>
+                  <span style={{ width: 16, height: 16, borderRadius: 4, border: "1.5px solid #86efac", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 9, color: "#22c55e" }}>⚡</span>
+                  <span style={{ fontSize: 12, color: "#166534", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tp}</span>
+                </div>
+              ))}
+            </div>
+            : <div style={{ padding: "4px 0 12px", fontSize: 12.5, color: "#c0c8d4" }}>No test plans</div>
+          )}
         </div>
 
         {/* Progress Section */}
         <div style={{ padding: "0 20px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 0 10px", borderTop: "1px solid #e2e8f0" }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Progress</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0 10px", borderTop: "1px solid #e2e8f0" }}>
+            <span style={sectionLabelStyle}>Progress</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
             <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
@@ -693,7 +759,7 @@ function DetailPanel({ iface, allSystems, onClose }) {
             <span style={{ fontSize: 13, fontWeight: 700, color: "#1f2937", minWidth: 36, textAlign: "right" }}>{progress}%</span>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "#94a3b8" }}>
-            <span>Requirements: {(iface.requirements || []).length}</span>
+            <span>Requirements: {reqs.length}</span>
             <span>Verified: {iface.verificationStatus === "success" ? "Yes" : "No"}</span>
           </div>
         </div>
@@ -701,7 +767,7 @@ function DetailPanel({ iface, allSystems, onClose }) {
         {/* Dates */}
         <div style={{ padding: "0 20px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 10px", borderTop: "1px solid #e2e8f0" }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#9ca3af" }}>Dates</span>
+            <span style={sectionLabelStyle}>Dates</span>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}>
@@ -1332,7 +1398,7 @@ export default function SERMTool() {
             </g>
           </svg>
         </div>
-        {detailId && (() => { const iface = ifaces.find(i => i.id === detailId); if (!iface) return null; return <DetailPanel iface={iface} allSystems={positioned} onClose={handleDetailClose} />; })()}
+        {detailId && (() => { const iface = ifaces.find(i => i.id === detailId); if (!iface) return null; return <DetailPanel iface={iface} allSystems={positioned} allRequirements={allRequirements} onClose={handleDetailClose} />; })()}
       </div>
       {modal && <InterfaceModal mode={modal.mode} sourceId={modal.sourceId} targetId={modal.targetId} allSystems={positioned} allRequirements={allRequirements} onClose={() => setModal(null)} onCreate={handleCreate} onAddReq={r => setAllRequirements(p => [...p, r])} />}
     </div>
