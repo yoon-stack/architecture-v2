@@ -990,9 +990,80 @@ export default function SERMTool() {
   const breadcrumb = useMemo(() => { if (!focusId) return null; const ch = [{ id: null, name: "All" }]; getAncestorIds(focusId, parentMap).reverse().forEach(a => { const n = findNode(hierarchy, a); if (n) ch.push({ id: a, name: n.name }); }); const fn = findNode(hierarchy, focusId); if (fn) ch.push({ id: focusId, name: fn.name }); return ch; }, [focusId, parentMap]);
   const connDots = useMemo(() => { const m = {}; for (const [ifId, da] of Object.entries(animDots)) { const iface = ifaces.find(i => i.id === ifId); if (!iface) continue; if (!m[iface.source]) m[iface.source] = []; m[iface.source].push({ ...da.s, ifaceId: ifId }); if (!m[iface.target]) m[iface.target] = []; m[iface.target].push({ ...da.t, ifaceId: ifId }); } return m; }, [animDots, ifaces]);
 
-  const handleBlockDown = useCallback((e, id) => { e.stopPropagation(); setDragging(id); dragRef.current = { x: e.clientX, y: e.clientY }; }, []);
-  const handleDblClick = useCallback((id) => { setExpanded(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); setDragOffsets({}); setPillOffsets({}); setLineOffsets({}); }, []);
+  const exitConnFocus = useCallback(() => {
+    if (prevExpandedRef.current) {
+      setExpanded(prevExpandedRef.current);
+      prevExpandedRef.current = null;
+    }
+    setConnFocusId(null);
+    setCenterTrigger(c => c + 1);
+  }, []);
+
+  const enterConnFocus = useCallback((id) => {
+    if (connFocusIdRef.current === id) {
+      exitConnFocus();
+      return;
+    }
+    if (!connFocusIdRef.current) {
+      prevExpandedRef.current = new Set(expandedRef.current);
+    }
+    setFocusId(null); setRevealed(new Set());
+    const focusedAndDesc = new Set([id, ...getDescendantIds(hierarchy, id)]);
+    const neededExpansions = new Set();
+    getAncestorIds(id, parentMap).forEach(a => neededExpansions.add(a));
+    const focusedNode = findNode(hierarchy, id);
+    if (focusedNode?.children?.length) neededExpansions.add(id);
+    for (const iface of ifaces) {
+      if (focusedAndDesc.has(iface.source) || focusedAndDesc.has(iface.target)) {
+        getAncestorIds(iface.source, parentMap).forEach(a => neededExpansions.add(a));
+        getAncestorIds(iface.target, parentMap).forEach(a => neededExpansions.add(a));
+      }
+    }
+    const base = prevExpandedRef.current || expandedRef.current;
+    const n = new Set(base);
+    neededExpansions.forEach(a => n.add(a));
+    setExpanded(n);
+    setConnFocusId(id);
+    setCenterTrigger(c => c + 1);
+  }, [exitConnFocus, ifaces, parentMap]);
+
+  const blockClickRef = useRef({ id: null, time: 0 });
+  const canvasClickRef = useRef({ time: 0 });
+  const blockDownPos = useRef({ x: 0, y: 0 });
+  const DBLCLICK_MS = 400;
+  const DRAG_THRESHOLD = 6;
+
+  const handleBlockDown = useCallback((e, id) => {
+    e.stopPropagation();
+    setDragging(id);
+    dragRef.current = { x: e.clientX, y: e.clientY };
+    blockDownPos.current = { x: e.clientX, y: e.clientY };
+  }, []);
+  const handleBlockClick = useCallback((e, id) => {
+    e.stopPropagation();
+    const dist = Math.hypot(e.clientX - blockDownPos.current.x, e.clientY - blockDownPos.current.y);
+    if (dist > DRAG_THRESHOLD) return;
+    const now = Date.now();
+    const prev = blockClickRef.current;
+    if (prev.id === id && now - prev.time < DBLCLICK_MS) {
+      blockClickRef.current = { id: null, time: 0 };
+      enterConnFocus(id);
+      return;
+    }
+    blockClickRef.current = { id, time: now };
+    setSelBlockId(prev2 => prev2 === id ? null : id);
+    setSelId(null);
+  }, [enterConnFocus]);
   const handleCanvasDown = useCallback((e) => { if (!dragging && !connecting && !draggingPill && !draggingLine) { setPanSt(true); panRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; setSelId(null); setSelBlockId(null); } }, [pan, dragging, connecting, draggingPill, draggingLine]);
+  const handleCanvasClick = useCallback(() => {
+    const now = Date.now();
+    if (now - canvasClickRef.current.time < DBLCLICK_MS) {
+      canvasClickRef.current.time = 0;
+      if (connFocusIdRef.current) exitConnFocus();
+    } else {
+      canvasClickRef.current.time = now;
+    }
+  }, [exitConnFocus]);
   const handleDotDown = useCallback((e, sysId, cx, cy) => { e.stopPropagation(); e.preventDefault(); const r = svgRef.current.getBoundingClientRect(); setConnecting({ sourceId: sysId, startX: cx, startY: cy, currentX: (e.clientX - r.left - pan.x) / zoom, currentY: (e.clientY - r.top - pan.y) / zoom }); }, [pan, zoom]);
   const handlePillDown = useCallback((e, ifId) => { e.stopPropagation(); setDraggingPill(ifId); setPillDragStart({ x: e.clientX, y: e.clientY, off: pillOffsets[ifId] || { dx: 0, dy: 0 } }); }, [pillOffsets]);
   // Handle dragging the vertical middle segment of a connector line
@@ -1130,43 +1201,6 @@ export default function SERMTool() {
     setCenterTrigger(c => c + 1);
   }, []);
 
-  const exitConnFocus = useCallback(() => {
-    if (prevExpandedRef.current) {
-      setExpanded(prevExpandedRef.current);
-      prevExpandedRef.current = null;
-    }
-    setConnFocusId(null);
-    setCenterTrigger(c => c + 1);
-  }, []);
-
-  const enterConnFocus = useCallback((id) => {
-    if (connFocusIdRef.current === id) {
-      exitConnFocus();
-      return;
-    }
-    if (!connFocusIdRef.current) {
-      prevExpandedRef.current = new Set(expandedRef.current);
-    }
-    setFocusId(null); setRevealed(new Set());
-    const focusedAndDesc = new Set([id, ...getDescendantIds(hierarchy, id)]);
-    const neededExpansions = new Set();
-    getAncestorIds(id, parentMap).forEach(a => neededExpansions.add(a));
-    const focusedNode = findNode(hierarchy, id);
-    if (focusedNode?.children?.length) neededExpansions.add(id);
-    for (const iface of ifaces) {
-      if (focusedAndDesc.has(iface.source) || focusedAndDesc.has(iface.target)) {
-        getAncestorIds(iface.source, parentMap).forEach(a => neededExpansions.add(a));
-        getAncestorIds(iface.target, parentMap).forEach(a => neededExpansions.add(a));
-      }
-    }
-    const base = prevExpandedRef.current || expandedRef.current;
-    const n = new Set(base);
-    neededExpansions.forEach(a => n.add(a));
-    setExpanded(n);
-    setConnFocusId(id);
-    setCenterTrigger(c => c + 1);
-  }, [exitConnFocus, ifaces, parentMap]);
-
   const containers = Object.values(visible).filter(s => s.expanded && s.hasChildren).sort((a, b) => getAncestorIds(a.id, parentMap).length - getAncestorIds(b.id, parentMap).length);
   const leaves = Object.values(visible).filter(s => !(s.expanded && s.hasChildren));
   const leafRects = useMemo(() => leaves.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h })), [leaves]);
@@ -1225,14 +1259,14 @@ export default function SERMTool() {
           <button onClick={() => { setDragOffsets({}); setPillOffsets({}); setLineOffsets({}); setDotOverrides({}); rawDragAccum.current = {}; setCenterTrigger(c => c + 1); }} style={{ position: "absolute", top: 14, right: 18, zIndex: 10, display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, fontWeight: 600, color: "#475569", cursor: "pointer", boxShadow: "0 1px 6px rgba(0,0,0,0.06)", backdropFilter: "blur(8px)" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Layout</button>
           <MiniMap blocks={visible} pan={pan} zoom={zoom} vw={viewSize.w} vh={viewSize.h} />
           <div style={{ position: "absolute", bottom: 16, left: 18, zIndex: 10, fontSize: 10, color: "#94a3b8", background: "rgba(255,255,255,0.9)", padding: "3px 9px", borderRadius: 5, border: "1px solid #e8ebef" }}>Double-click block to focus connections · Double-click blank to exit · Drag dots to connect · Drag pills to reposition</div>
-          <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} onDoubleClick={() => { if (connFocusId) exitConnFocus(); }} style={{ background: "#f1f5f9", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
+          <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} onClick={handleCanvasClick} style={{ background: "#f1f5f9", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
             <defs>
               <filter id="bs" x="-4%" y="-4%" width="108%" height="116%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodOpacity="0.05" /></filter>
               <pattern id="grid" width={GRID} height={GRID} patternUnits="userSpaceOnUse" patternTransform={`translate(${pan.x},${pan.y}) scale(${zoom})`}><circle cx={GRID / 2} cy={GRID / 2} r="1.2" fill="#b0b8c4" opacity="0.45" /></pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-              {containers.map(sys => { const isSB = selBlockId === sys.id; const isH = hovBlock === sys.id && !connecting; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => { e.stopPropagation(); setSelBlockId(selBlockId === sys.id ? null : sys.id); setSelId(null); }} onDoubleClick={e => { e.stopPropagation(); enterConnFocus(sys.id); }} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
+              {containers.map(sys => { const isSB = selBlockId === sys.id; const isH = hovBlock === sys.id && !connecting; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
                 <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={10} fill={`${sys.color}06`} stroke={relIds.includes(sys.id) || isSB ? "#2563eb" : sys.color} strokeWidth={relIds.includes(sys.id) || isSB ? 2.5 : 1.5} strokeDasharray="7 3" />
                 <rect x={sys.x} y={sys.y} width={sys.w} height={HEADER_H} rx={10} fill={`${sys.color}0d`} /><rect x={sys.x} y={sys.y + HEADER_H - 8} width={sys.w} height={8} fill={`${sys.color}0d`} />
                 <CubeIcon x={sys.x + 10} y={sys.y + 10} size={18} color={sys.color} />
@@ -1301,7 +1335,7 @@ export default function SERMTool() {
                 const isR = relIds.includes(sys.id); const isSB = selBlockId === sys.id; const isC = !sys.expanded && sys.hasChildren;
                 const isH = hovBlock === sys.id && !connecting;
                 const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id));
-                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => { e.stopPropagation(); setSelBlockId(selBlockId === sys.id ? null : sys.id); setSelId(null); }} onDoubleClick={e => { e.stopPropagation(); enterConnFocus(sys.id); }} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
+                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
                   <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill="#fff" stroke={isR || isSB ? "#2563eb" : isH ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR || isSB ? 2.5 : 1} filter="url(#bs)" />
                   <CubeIcon x={sys.x + 10} y={sys.y + (sys.h - 17) / 2} size={17} color={sys.color} />
                   <text x={sys.x + 32} y={sys.y + sys.h / 2 + 4.5} fontSize={12.5} fontFamily="'DM Sans',sans-serif" fontWeight={600} fill="#1e293b">{sys.name.length > 17 ? sys.name.slice(0, 17) + "..." : sys.name}</text>
