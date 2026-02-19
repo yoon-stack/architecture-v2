@@ -512,7 +512,15 @@ function MiniMap({ blocks, pan, zoom, vw, vh }) {
   </div>;
 }
 
-function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, focusSys, hovSys, setHovSys, onQuickAdd, d = 0 }) {
+function ReqIcon({ size = 12 }) {
+  return <svg width={size} height={size} viewBox="0 0 16 16" style={{ flexShrink: 0 }}><rect x="2" y="1" width="12" height="14" rx="2" fill="#dbeafe" stroke="#3b82f6" strokeWidth="1.2"/><line x1="5" y1="5" x2="11" y2="5" stroke="#3b82f6" strokeWidth="1.2"/><line x1="5" y1="8" x2="11" y2="8" stroke="#3b82f6" strokeWidth="1.2"/><line x1="5" y1="11" x2="9" y2="11" stroke="#3b82f6" strokeWidth="1.2"/></svg>;
+}
+function TestIcon({ status, size = 11 }) {
+  const c = status === "pass" ? { fill: "#dcfce7", stroke: "#16a34a" } : status === "fail" ? { fill: "#fee2e2", stroke: "#dc2626" } : { fill: "#fef9c3", stroke: "#ca8a04" };
+  return <svg width={size} height={size} viewBox="0 0 16 16" style={{ flexShrink: 0 }}><path d="M6.5 2h3v4l2.5 5.5a1 1 0 01-.9 1.5H4.9a1 1 0 01-.9-1.5L6.5 6V2z" fill={c.fill} stroke={c.stroke} strokeWidth="1" strokeLinejoin="round"/><line x1="5.5" y1="1.5" x2="10.5" y2="1.5" stroke={c.stroke} strokeWidth="1.2" strokeLinecap="round"/></svg>;
+}
+
+function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, focusSys, hovSys, setHovSys, onQuickAdd, allRequirements, sbIfaceExp, togSbIface, d = 0 }) {
   return nodes.map(node => {
     const ni = ifaces.filter(i => i.source === node.id || i.target === node.id);
     const hk = !!(node.children?.length); const isO = sbExp.has(node.id); const hc = ni.length > 0 || hk;
@@ -530,13 +538,44 @@ function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, 
         </>}
       </div>
       {isO && <div>
-        {ni.map(iface => <div key={iface.id + node.id} onClick={e => { e.stopPropagation(); onSel(iface.id); }} onMouseEnter={() => onHov(iface.id)} onMouseLeave={() => onHov(null)}
-          style={{ display: "flex", alignItems: "center", gap: 6, padding: `4px 8px 4px ${22 + d * 14}px`, cursor: "pointer", borderRadius: 5, fontSize: 10.5, marginBottom: 1, background: selId === iface.id ? "#eff6ff" : hovId === iface.id ? "#f8fafc" : "transparent", border: selId === iface.id ? "1px solid #bfdbfe" : "1px solid transparent" }}>
-          <span style={{ color: selId === iface.id ? "#2563eb" : "#b0b8c4", fontSize: 12 }}>∞</span>
-          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: selId === iface.id ? 600 : 400, color: selId === iface.id ? "#2563eb" : "#64748b" }}>{iface.name}</span>
-          <span style={{ fontSize: 9, color: "#b0b8c4", background: "#f1f5f9", padding: "0 3px", borderRadius: 2 }}>{iface.id}</span>
-        </div>)}
-        {hk && node.children && <SidebarTree nodes={node.children} ifaces={ifaces} selId={selId} hovId={hovId} onSel={onSel} onHov={onHov} sbExp={sbExp} togSb={togSb} focusSys={focusSys} hovSys={hovSys} setHovSys={setHovSys} onQuickAdd={onQuickAdd} d={d + 1} />}
+        {ni.map(iface => {
+          const reqs = iface.requirements || [];
+          const hasReqs = reqs.length > 0;
+          const ifaceKey = iface.id + "_" + node.id;
+          const isIfaceOpen = sbIfaceExp.has(ifaceKey);
+          return <div key={iface.id + node.id}>
+            <div onClick={e => { e.stopPropagation(); onSel(iface.id); if (hasReqs) togSbIface(ifaceKey); }} onMouseEnter={() => onHov(iface.id)} onMouseLeave={() => onHov(null)}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: `4px 8px 4px ${20 + d * 14}px`, cursor: "pointer", borderRadius: 5, fontSize: 10.5, marginBottom: 1, background: selId === iface.id ? "#eff6ff" : hovId === iface.id ? "#f8fafc" : "transparent", border: selId === iface.id ? "1px solid #bfdbfe" : "1px solid transparent" }}>
+              {hasReqs ? <span style={{ fontSize: 7, color: "#94a3b8", width: 8, textAlign: "center", display: "inline-block", transition: "transform 0.15s", transform: isIfaceOpen ? "rotate(90deg)" : "none" }}>▶</span> : <span style={{ width: 8 }} />}
+              <span style={{ color: selId === iface.id ? "#2563eb" : "#b0b8c4", fontSize: 12 }}>∞</span>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: selId === iface.id ? 600 : 400, color: selId === iface.id ? "#2563eb" : "#64748b" }}>{iface.name}</span>
+              <span style={{ fontSize: 9, color: "#b0b8c4", background: "#f1f5f9", padding: "0 3px", borderRadius: 2 }}>{iface.id}</span>
+            </div>
+            {isIfaceOpen && hasReqs && <div>
+              {reqs.map(rq => {
+                const ref = allRequirements.find(r => r.id === rq.id);
+                const tests = rq.tests || [];
+                const reqStatus = getReqStatus(tests);
+                return <div key={rq.id}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: `3px 8px 3px ${34 + d * 14}px`, borderRadius: 4, fontSize: 10, marginBottom: 1 }}>
+                    <ReqIcon size={12} />
+                    <span style={{ fontWeight: 600, color: "#2563eb", fontSize: 10, flexShrink: 0 }}>{rq.id}</span>
+                    <span style={{ color: "#64748b", fontSize: 10, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ref?.label || ""}</span>
+                    <VerifyIcon status={reqStatus} size={13} />
+                  </div>
+                  {tests.map((t, ti) => (
+                    <div key={ti} style={{ display: "flex", alignItems: "center", gap: 5, padding: `2px 8px 2px ${46 + d * 14}px`, fontSize: 9.5, marginBottom: 1 }}>
+                      <TestIcon status={t.status} size={11} />
+                      <span style={{ color: t.status === "pass" ? "#166534" : t.status === "fail" ? "#991b1b" : "#92400e", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+                      <VerifyIcon status={t.status} size={12} />
+                    </div>
+                  ))}
+                </div>;
+              })}
+            </div>}
+          </div>;
+        })}
+        {hk && node.children && <SidebarTree nodes={node.children} ifaces={ifaces} selId={selId} hovId={hovId} onSel={onSel} onHov={onHov} sbExp={sbExp} togSb={togSb} focusSys={focusSys} hovSys={hovSys} setHovSys={setHovSys} onQuickAdd={onQuickAdd} allRequirements={allRequirements} sbIfaceExp={sbIfaceExp} togSbIface={togSbIface} d={d + 1} />}
       </div>}
     </div>;
   });
@@ -916,6 +955,7 @@ export default function SERMTool() {
   const [panning, setPanSt] = useState(false);
   const [dragOffsets, setDragOffsets] = useState({});
   const [sbExp, setSbExp] = useState(new Set(["launch-vehicle", "stage-1", "stage-2"]));
+  const [sbIfaceExp, setSbIfaceExp] = useState(new Set());
   const [connecting, setConnecting] = useState(null);
   const [modal, setModal] = useState(null);
   const [focusId, setFocusId] = useState(null);
@@ -1050,7 +1090,9 @@ export default function SERMTool() {
   const connDots = useMemo(() => { const m = {}; for (const [ifId, da] of Object.entries(animDots)) { const iface = ifaces.find(i => i.id === ifId); if (!iface) continue; if (!m[iface.source]) m[iface.source] = []; m[iface.source].push({ ...da.s, ifaceId: ifId }); if (!m[iface.target]) m[iface.target] = []; m[iface.target].push({ ...da.t, ifaceId: ifId }); } return m; }, [animDots, ifaces]);
 
   const DRAG_THRESHOLD = 6;
+  const DBLCLICK_MS = 400;
   const blockDownPos = useRef({ x: 0, y: 0 });
+  const blockClickRef = useRef({ id: null, time: 0 });
 
   const handleBlockDown = useCallback((e, id) => {
     e.stopPropagation();
@@ -1062,6 +1104,18 @@ export default function SERMTool() {
     e.stopPropagation();
     const dist = Math.hypot(e.clientX - blockDownPos.current.x, e.clientY - blockDownPos.current.y);
     if (dist > DRAG_THRESHOLD) return;
+    const now = Date.now();
+    const prev = blockClickRef.current;
+    if (prev.id === id && now - prev.time < DBLCLICK_MS) {
+      blockClickRef.current = { id: null, time: 0 };
+      const node = findNode(hierarchy, id);
+      if (node?.children?.length) {
+        setExpanded(exp => { const n = new Set(exp); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+        setCenterTrigger(c => c + 1);
+      }
+      return;
+    }
+    blockClickRef.current = { id, time: now };
     setSelBlockId(prev2 => prev2 === id ? null : id);
     setSelId(null);
   }, []);
@@ -1187,6 +1241,7 @@ export default function SERMTool() {
     setDetailEditing(false);
   }, [detailId]);
   const togSb = useCallback((id) => { setSbExp(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }, []);
+  const togSbIface = useCallback((key) => { setSbIfaceExp(p => { const n = new Set(p); if (n.has(key)) n.delete(key); else n.add(key); return n; }); }, []);
   const focusSys = useCallback((id) => {
     const currentKey = focusIdRef.current || "__all__";
     setViewStates(prev => ({ ...prev, [currentKey]: { dragOffsets: dragOffsetsRef.current, pillOffsets: pillOffsetsRef.current, dotOverrides: dotOverridesRef.current, lineOffsets: lineOffsetsRef.current } }));
@@ -1241,7 +1296,7 @@ export default function SERMTool() {
             </div>}
           </div>
           <div style={{ flex: 1, overflowY: "auto", padding: "2px 6px" }}>
-            <SidebarTree nodes={hierarchy} ifaces={ifaces} selId={selId} hovId={hovId} onSel={id => setSelId(selId === id ? null : id)} onHov={setHovId} sbExp={sbExp} togSb={togSb} focusSys={focusSys} hovSys={hovSys} setHovSys={setHovSys} onQuickAdd={sysId => setModal({ mode: "quick", sourceId: sysId })} />
+            <SidebarTree nodes={hierarchy} ifaces={ifaces} selId={selId} hovId={hovId} onSel={id => setSelId(selId === id ? null : id)} onHov={setHovId} sbExp={sbExp} togSb={togSb} focusSys={focusSys} hovSys={hovSys} setHovSys={setHovSys} onQuickAdd={sysId => setModal({ mode: "quick", sourceId: sysId })} allRequirements={allRequirements} sbIfaceExp={sbIfaceExp} togSbIface={togSbIface} />
           </div>
         </div>
         {/* Canvas */}
@@ -1300,7 +1355,6 @@ export default function SERMTool() {
               })}
 
               {(() => {
-                // Group external ifaces by their internal block so we can space them apart
                 const extByBlock = {};
                 for (const iface of externalIfaces) {
                   const inId = focusIds?.has(iface.source) ? iface.source : iface.target;
@@ -1313,17 +1367,25 @@ export default function SERMTool() {
                   const inB = visible[inId]; if (!inB) return null;
                   const group = extByBlock[inId] || [];
                   const idx = group.indexOf(iface);
-                  const gap = 28;
+                  const gap = 34;
                   const startY = inB.y + inB.h * 0.3;
                   const sy = startY + idx * gap;
                   const sx = inB.x;
-                  const ex = sx - 50 - idx * 12, ey = sy;
+                  const extSys = positioned[outId];
+                  const extName = extSys?.name || outId;
+                  const truncName = extName.length > 14 ? extName.slice(0, 13) + "\u2026" : extName;
+                  const boxH = 26, boxW = Math.max(truncName.length * 6.5 + 32, 64);
+                  const lineEndX = sx - 20;
+                  const boxX = lineEndX - boxW, boxY = sy - boxH / 2;
+                  const extColor = extSys?.color || "#94a3b8";
                   const isH = hovStub === iface.id; const isR = revealed.has(outId);
+                  const toggleReveal = e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); };
                   return <g key={"ext" + iface.id} onMouseEnter={() => setHovStub(iface.id)} onMouseLeave={() => setHovStub(null)}>
-                    <path d={`M${sx},${sy} L${ex},${ey}`} fill="none" stroke="#b0b8c4" strokeWidth={2} strokeDasharray="4 3" />
-                    <circle cx={ex} cy={ey} r={10} fill="transparent" style={{ cursor: "pointer" }} onClick={e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); }} />
-                    <circle cx={ex} cy={ey} r={4} fill="#94a3b8" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: "none" }} /><circle cx={sx} cy={sy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
-                    {(isH || isR) && <text x={ex - 8} y={ey + 4} textAnchor="end" fontSize={10} fontFamily="'DM Sans',sans-serif" fill="#64748b" opacity={isR ? 1 : 0.5} style={{ cursor: "pointer" }} onClick={e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); }}>{positioned[outId]?.name || outId}</text>}
+                    <path d={`M${sx},${sy} L${lineEndX},${sy}`} fill="none" stroke="#b0b8c4" strokeWidth={1.5} strokeDasharray="4 3" />
+                    <circle cx={sx} cy={sy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
+                    <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={6} fill={isR ? "#eff6ff" : isH ? "#f8fafc" : "#fff"} stroke={isR ? "#2563eb" : isH ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR ? 1.5 : 1} style={{ cursor: "pointer", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.06))" }} onClick={toggleReveal} />
+                    <CubeIcon x={boxX + 6} y={boxY + (boxH - 13) / 2} size={13} color={extColor} />
+                    <text x={boxX + 23} y={sy + 3.5} fontSize={10} fontFamily="'DM Sans',sans-serif" fontWeight={500} fill={isR ? "#2563eb" : "#475569"} style={{ pointerEvents: "none" }}>{truncName}</text>
                   </g>;
                 });
               })()}
