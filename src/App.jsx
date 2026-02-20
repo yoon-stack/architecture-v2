@@ -225,32 +225,56 @@ function computePills(ifaces, vis, dots, offsets) {
   for (const iface of ifaces) {
     const da = dots[iface.id]; if (!da) continue;
     const pw = Math.max(iface.name.length * 6.4 + 24, PILL_MIN_W);
-    const bx = (da.s.cx + da.t.cx) / 2 - pw / 2, by = (da.s.cy + da.t.cy) / 2 - PILL_H / 2;
+    const sB = vis[iface.source], tB = vis[iface.target];
+
+    const midX = (da.s.cx + da.t.cx) / 2, midY = (da.s.cy + da.t.cy) / 2;
+    let bx = midX - pw / 2, by = midY - PILL_H / 2;
+
+    // Clamp pill to stay between the two connected blocks
+    if (sB && tB) {
+      const dx = Math.abs(da.t.cx - da.s.cx), dy = Math.abs(da.t.cy - da.s.cy);
+      if (dx >= dy) {
+        // Horizontal connection: clamp X to gap between facing block edges
+        const gapL = Math.min(sB.x + sB.w, tB.x + tB.w);
+        const gapR = Math.max(sB.x, tB.x);
+        if (gapR - gapL >= pw) bx = Math.max(gapL, Math.min(gapR - pw, bx));
+      } else {
+        // Vertical connection: clamp Y to gap between facing block edges
+        const gapT = Math.min(sB.y + sB.h, tB.y + tB.h);
+        const gapB = Math.max(sB.y, tB.y);
+        if (gapB - gapT >= PILL_H) by = Math.max(gapT, Math.min(gapB - PILL_H, by));
+      }
+    }
+
     const off = offsets[iface.id] || { dx: 0, dy: 0 };
     let px = bx + off.dx, py = by + off.dy;
+
+    // Re-clamp after applying user offset
+    if (sB && tB) {
+      const dx = Math.abs(da.t.cx - da.s.cx), dy = Math.abs(da.t.cy - da.s.cy);
+      if (dx >= dy) {
+        const gapL = Math.min(sB.x + sB.w, tB.x + tB.w);
+        const gapR = Math.max(sB.x, tB.x);
+        if (gapR - gapL >= pw) px = Math.max(gapL, Math.min(gapR - pw, px));
+      } else {
+        const gapT = Math.min(sB.y + sB.h, tB.y + tB.h);
+        const gapB = Math.max(sB.y, tB.y);
+        if (gapB - gapT >= PILL_H) py = Math.max(gapT, Math.min(gapB - PILL_H, py));
+      }
+    }
+
     const col = (x, y) => {
       for (const br of blockRects) if (x + pw > br.x && x < br.x + br.w && y + PILL_H > br.y && y < br.y + br.h) return true;
       for (const p of placed) if (x + pw + 4 > p.x && x < p.x + p.w + 4 && y + PILL_H + 4 > p.y && y < p.y + p.h + 4) return true;
       return false;
     };
     if (col(px, py)) {
-      const dx = da.t.cx - da.s.cx, dy = da.t.cy - da.s.cy, len = Math.hypot(dx, dy) || 1;
-      const nx = -dy / len, ny = dx / len;
-      // Try along the connection direction first (places pill in row/col gaps),
-      // then perpendicular, then diagonals
-      const dirs = [
-        { nx: dx / len, ny: dy / len },       // along connection (finds row/col gaps)
-        { nx, ny },                           // perpendicular
-        { nx: (nx + dx / len) / 1.41, ny: (ny + dy / len) / 1.41 }, // diagonal 1
-        { nx: (nx - dx / len) / 1.41, ny: (ny - dy / len) / 1.41 }, // diagonal 2
-      ];
+      // Stack vertically (perpendicular to horizontal connections) to resolve collisions
+      // while keeping the pill between the blocks
       let found = false;
-      for (const dir of dirs) {
-        if (found) break;
-        for (let s = 1; s <= 12 && !found; s++) for (const sg of [1, -1]) {
-          const tx = bx + dir.nx * s * GRID * sg + off.dx, ty = by + dir.ny * s * GRID * sg + off.dy;
-          if (!col(tx, ty)) { px = tx; py = ty; found = true; break; }
-        }
+      for (let s = 1; s <= 16 && !found; s++) for (const sg of [1, -1]) {
+        const ty = py + sg * s * GRID;
+        if (!col(px, ty)) { py = ty; found = true; break; }
       }
     }
     pills[iface.id] = { x: px, y: py, w: pw, h: PILL_H }; placed.push({ x: px, y: py, w: pw, h: PILL_H });
@@ -529,9 +553,9 @@ function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, 
       <div style={{ display: "flex", alignItems: "center", gap: 5, padding: `5px 8px 5px ${8 + d * 14}px`, borderRadius: 5, fontSize: 11.5, color: "#334155", fontWeight: 600, userSelect: "none", background: isHov ? "#f8fafc" : "transparent", cursor: hc ? "pointer" : "default" }}
         onClick={() => { if (hc) togSb(node.id); }} onMouseEnter={() => setHovSys(node.id)} onMouseLeave={() => setHovSys(null)}>
         {hc ? <span style={{ fontSize: 8, color: "#94a3b8", width: 10, textAlign: "center", display: "inline-block", transition: "transform 0.15s", transform: isO ? "rotate(90deg)" : "none" }}>▶</span> : <span style={{ width: 10 }} />}
-        <svg width="13" height="13" viewBox="0 0 16 16"><polygon points="8,2 13,5.5 8,8 3,5.5" fill={node.color + "40"} stroke={node.color} strokeWidth="1" /><polygon points="8,8 13,5.5 13,10.5 8,14" fill={node.color + "25"} stroke={node.color} strokeWidth="1" /><polygon points="8,8 3,5.5 3,10.5 8,14" fill={node.color + "30"} stroke={node.color} strokeWidth="1" /></svg>
+        <svg width="13" height="13" viewBox="0 0 16 16"><polygon points="8,2 13,5.5 8,8 3,5.5" fill={COLORS.orange + "40"} stroke={COLORS.orange} strokeWidth="1" /><polygon points="8,8 13,5.5 13,10.5 8,14" fill={COLORS.orange + "25"} stroke={COLORS.orange} strokeWidth="1" /><polygon points="8,8 3,5.5 3,10.5 8,14" fill={COLORS.orange + "30"} stroke={COLORS.orange} strokeWidth="1" /></svg>
         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.name}</span>
-        {ni.length > 0 && <span style={{ fontSize: 9, color: "#94a3b8", background: "#f1f5f9", padding: "0 4px", borderRadius: 3 }}>{ni.length}</span>}
+        {ni.length > 0 && <span style={{ fontSize: 10, color: "#94a3b8", background: "#f1f5f9", padding: "0 4px", borderRadius: 3 }}>{ni.length}</span>}
         {isHov && <>
           <span onClick={e => { e.stopPropagation(); onQuickAdd(node.id); }} title="Add interface from this system" style={{ fontSize: 14, color: "#2563eb", cursor: "pointer", lineHeight: 1, fontWeight: 700, width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "#eff6ff" }}>+</span>
           <span onClick={e => { e.stopPropagation(); focusSys(node.id); }} title="Focus" style={{ fontSize: 12, color: "#94a3b8", cursor: "pointer" }}>⊚</span>
@@ -544,12 +568,13 @@ function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, 
           const ifaceKey = iface.id + "_" + node.id;
           const isIfaceOpen = sbIfaceExp.has(ifaceKey);
           return <div key={iface.id + node.id}>
-            <div onClick={e => { e.stopPropagation(); onSel(iface.id); if (hasReqs) togSbIface(ifaceKey); }} onMouseEnter={() => onHov(iface.id)} onMouseLeave={() => onHov(null)}
-              style={{ display: "flex", alignItems: "center", gap: 5, padding: `4px 8px 4px ${20 + d * 14}px`, cursor: "pointer", borderRadius: 5, fontSize: 10.5, marginBottom: 1, background: selId === iface.id ? "#eff6ff" : hovId === iface.id ? "#f8fafc" : "transparent", border: selId === iface.id ? "1px solid #bfdbfe" : "1px solid transparent" }}>
+            <div draggable onDragStart={e => { e.dataTransfer.setData("application/json", JSON.stringify({ type: "interface", id: iface.id })); e.dataTransfer.effectAllowed = "copy"; }}
+              onClick={e => { e.stopPropagation(); onSel(iface.id); if (hasReqs) togSbIface(ifaceKey); }} onMouseEnter={() => onHov(iface.id)} onMouseLeave={() => onHov(null)}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: `4px 8px 4px ${20 + d * 14}px`, cursor: "pointer", borderRadius: 5, fontSize: 11.5, marginBottom: 1, background: selId === iface.id ? "#eff6ff" : hovId === iface.id ? "#f8fafc" : "transparent", border: selId === iface.id ? "1px solid #bfdbfe" : "1px solid transparent" }}>
               {hasReqs ? <span style={{ fontSize: 7, color: "#94a3b8", width: 8, textAlign: "center", display: "inline-block", transition: "transform 0.15s", transform: isIfaceOpen ? "rotate(90deg)" : "none" }}>▶</span> : <span style={{ width: 8 }} />}
               <span style={{ color: selId === iface.id ? "#2563eb" : "#b0b8c4", fontSize: 12 }}>∞</span>
               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: selId === iface.id ? 600 : 400, color: selId === iface.id ? "#2563eb" : "#64748b" }}>{iface.name}</span>
-              <span style={{ fontSize: 9, color: "#b0b8c4", background: "#f1f5f9", padding: "0 3px", borderRadius: 2 }}>{iface.id}</span>
+              <span style={{ fontSize: 10, color: "#b0b8c4", background: "#f1f5f9", padding: "0 3px", borderRadius: 2 }}>{iface.id}</span>
             </div>
             {isIfaceOpen && hasReqs && <div>
               {reqs.map(rq => {
@@ -557,14 +582,15 @@ function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, 
                 const tests = rq.tests || [];
                 const reqStatus = getReqStatus(tests);
                 return <div key={rq.id}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, padding: `3px 8px 3px ${34 + d * 14}px`, borderRadius: 4, fontSize: 10, marginBottom: 1 }}>
+                  <div draggable onDragStart={e => { e.dataTransfer.setData("application/json", JSON.stringify({ type: "requirement", id: rq.id, parentIfaceId: iface.id })); e.dataTransfer.effectAllowed = "copy"; }}
+                    style={{ display: "flex", alignItems: "center", gap: 5, padding: `3px 8px 3px ${34 + d * 14}px`, borderRadius: 4, fontSize: 11.5, marginBottom: 1, cursor: "grab" }}>
                     <ReqIcon size={12} />
-                    <span style={{ fontWeight: 600, color: "#2563eb", fontSize: 10, flexShrink: 0 }}>{rq.id}</span>
-                    <span style={{ color: "#64748b", fontSize: 10, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ref?.label || ""}</span>
+                    <span style={{ fontWeight: 600, color: "#2563eb", fontSize: 11.5, flexShrink: 0 }}>{rq.id}</span>
+                    <span style={{ color: "#64748b", fontSize: 11.5, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ref?.label || ""}</span>
                     <VerifyIcon status={reqStatus} size={13} />
                   </div>
                   {tests.map((t, ti) => (
-                    <div key={ti} style={{ display: "flex", alignItems: "center", gap: 5, padding: `2px 8px 2px ${46 + d * 14}px`, fontSize: 9.5, marginBottom: 1 }}>
+                    <div key={ti} style={{ display: "flex", alignItems: "center", gap: 5, padding: `2px 8px 2px ${46 + d * 14}px`, fontSize: 11.5, marginBottom: 1 }}>
                       <TestIcon status={t.status} size={11} />
                       <span style={{ color: t.status === "pass" ? "#166534" : t.status === "fail" ? "#991b1b" : "#92400e", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
                       <VerifyIcon status={t.status} size={12} />
@@ -601,7 +627,7 @@ function InterfaceModal({ mode, sourceId, targetId, allSystems, allRequirements,
   const is = { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid #e2e8f0", fontSize: 12.5, background: "#f8fafc", outline: "none", boxSizing: "border-box" };
   const canCreate = src && tgt && nm.trim();
   return <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(4px)" }}>
-    <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 440, boxShadow: "0 20px 40px rgba(0,0,0,0.15)", fontFamily: "'DM Sans',sans-serif", maxHeight: "85vh", overflowY: "auto" }}>
+    <div style={{ background: "#fff", borderRadius: 16, padding: 28, width: 440, boxShadow: "0 20px 40px rgba(0,0,0,0.15)", fontFamily: "'AktivGrotesk','DM Sans',sans-serif", maxHeight: "85vh", overflowY: "auto" }}>
       <h3 style={{ margin: "0 0 4px", fontSize: 17, fontWeight: 700 }}>New Interface</h3>
       {mode === "quick" && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}>From: <strong>{allSystems[src]?.name || src}</strong></p>}
       {mode === "drag" && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748b" }}><strong>{allSystems[src]?.name}</strong> → <strong>{allSystems[tgt]?.name}</strong></p>}
@@ -666,205 +692,344 @@ function getReqStatus(tests) {
   return "pending";
 }
 
-function DetailPanel({ iface, allSystems, allRequirements, onClose }) {
-  const [reqOpen, setReqOpen] = useState(true);
+function AIChatPanel({ onCollapse, width }) {
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
 
-  useEffect(() => { const h = (e) => { if (e.key === "Escape") onClose(); }; window.addEventListener("keydown", h); return () => window.removeEventListener("keydown", h); }, [onClose]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isTyping]);
+  useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const srcSys = allSystems[iface.source], tgtSys = allSystems[iface.target];
-  const sysColor = (id) => allSystems[id]?.color || "#94a3b8";
-
-  const verificationConfig = {
-    success: { label: "Success", color: "#16a34a", bg: "#f0fdf4", icon: "✓" },
-    fail: { label: "Fail", color: "#dc2626", bg: "#fef2f2", icon: "✕" },
-    unknown: { label: "Unknown", color: "#94a3b8", bg: "#f8fafc", icon: "?" },
+  const handleSend = () => {
+    const text = input.trim();
+    if (!text) return;
+    setMessages(prev => [...prev, { role: "user", content: text, time: new Date() }]);
+    setInput("");
+    setIsTyping(true);
+    setTimeout(() => {
+      setIsTyping(false);
+      setMessages(prev => [...prev, { role: "ai", content: "I'm Flow AI — this is a prototype response. I can help you analyze interfaces, requirements, and system architecture. Ask me anything about your project data.", time: new Date() }]);
+    }, 1200);
   };
-  const maturityConfig = {
-    concept: { label: "Concept", color: "#f59e0b", bg: "#fffbeb", icon: "◇" },
-    defined: { label: "Defined", color: "#8b5cf6", bg: "#f5f3ff", icon: "◆" },
-    verified: { label: "Verified", color: "#16a34a", bg: "#f0fdf4", icon: "◆" },
-  };
-  const typeColors = { Electrical: { bg: "#fef3c7", fg: "#92400e" }, Mechanical: { bg: "#dcfce7", fg: "#166534" }, Signal: { bg: "#fce7f3", fg: "#9d174d" }, Data: { bg: "#e0e7ff", fg: "#3730a3" } };
-
-  const vs = verificationConfig[iface.verificationStatus] || verificationConfig.unknown;
-  const ml = maturityConfig[iface.maturityLevel] || maturityConfig.concept;
-  const tc = typeColors[iface.interfaceType] || { bg: "#f1f5f9", fg: "#475569" };
-  const progress = iface.progress || 0;
-  const reqs = (iface.requirements || []).map(rq => {
-    const ref = allRequirements.find(r => r.id === rq.id);
-    return { ...rq, label: ref?.label || "" };
-  });
-  const totalTests = reqs.reduce((s, r) => s + (r.tests?.length || 0), 0);
-
-  const rowStyle = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #f1f5f9" };
-  const labelStyle = { fontSize: 13, color: "#6b7280", fontWeight: 500 };
-  const valueStyle = { fontSize: 13, color: "#1f2937", fontWeight: 500, display: "flex", alignItems: "center", gap: 6 };
-  const sectionLabelStyle = { fontSize: 12, fontWeight: 600, color: "#9ca3af" };
-  const chevronStyle = (open) => ({ fontSize: 9, color: "#b0b8c4", transition: "transform 0.15s", transform: open ? "rotate(90deg)" : "none", display: "inline-block" });
 
   return (
-    <div style={{ width: 380, background: "#fff", borderLeft: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0, fontFamily: "'DM Sans',sans-serif", overflow: "hidden" }}>
+    <div style={{ width: width || 380, background: "#fff", borderLeft: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "16px 20px 12px", borderBottom: "1px solid #e2e8f0", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 500 }}>{iface.id}</span>
-          <button onClick={onClose} style={{ width: 24, height: 24, borderRadius: 5, border: "none", background: "transparent", cursor: "pointer", fontSize: 15, color: "#94a3b8", display: "flex", alignItems: "center", justifyContent: "center" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>×</button>
+      <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>New Chat</span>
+          <svg width="10" height="10" viewBox="0 0 12 12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
-        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>{iface.name}</h3>
-        {iface.desc && <p style={{ margin: "6px 0 0", fontSize: 12.5, color: "#64748b", lineHeight: 1.5 }}>{iface.desc}</p>}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"} title="New chat" onClick={() => setMessages([])}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          </button>
+          <button style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"} title="Side by side">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+          </button>
+          <button onClick={onCollapse} style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"} title="Collapse panel">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"/><line x1="6" y1="6" x2="6" y2="18"/></svg>
+          </button>
+        </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {/* Properties Section */}
-        <div style={{ padding: "4px 20px 0" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 6px" }}>
-            <span style={sectionLabelStyle}>Properties</span>
+      {/* Messages area */}
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
+        {messages.length === 0 ? (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 30px", textAlign: "center" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3L14.5 8.5L20.5 9.3L16.2 13.4L17.3 19.3L12 16.5L6.7 19.3L7.8 13.4L3.5 9.3L9.5 8.5Z"/></svg>
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>Ask anything or write with AI</div>
+            <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.5 }}>Use Flow AI to write for you, or answer questions about your data inside your project</div>
           </div>
-
-          <div style={rowStyle}>
-            <span style={labelStyle}>Verification</span>
-            <span style={{ ...valueStyle, background: vs.bg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: vs.color, border: `1px solid ${vs.color}20` }}>
-              <span style={{ fontSize: 10 }}>{vs.icon}</span> {vs.label}
-            </span>
-          </div>
-
-          <div style={rowStyle}>
-            <span style={labelStyle}>Maturity</span>
-            <span style={{ ...valueStyle, background: ml.bg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: ml.color, border: `1px solid ${ml.color}20` }}>
-              <span style={{ fontSize: 8 }}>{ml.icon}</span> {ml.label}
-            </span>
-          </div>
-
-          <div style={rowStyle}>
-            <span style={labelStyle}>Type</span>
-            {iface.interfaceType
-              ? <span style={{ ...valueStyle, background: tc.bg, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: tc.fg }}>{iface.interfaceType}</span>
-              : <span style={{ fontSize: 13, color: "#c0c8d4" }}>—</span>}
-          </div>
-
-          <div style={rowStyle}>
-            <span style={labelStyle}>Owner</span>
-            {iface.owner ? (
-              <span style={valueStyle}>
-                <span style={{ width: 22, height: 22, borderRadius: 11, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "#fff" }}>{iface.owner.charAt(0).toUpperCase()}</span>
-                {iface.owner}
-              </span>
-            ) : <span style={{ fontSize: 13, color: "#c0c8d4" }}>Unassigned</span>}
-          </div>
-
-          <div style={rowStyle}>
-            <span style={labelStyle}>Team</span>
-            {iface.team ? (
-              <span style={valueStyle}>
-                <span style={{ width: 18, height: 18, borderRadius: 9, background: "#22c55e30", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#16a34a" }}>●</span>
-                {iface.team}
-              </span>
-            ) : <span style={{ fontSize: 13, color: "#c0c8d4" }}>No team</span>}
-          </div>
-
-          <div style={rowStyle}>
-            <span style={labelStyle}>Source</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.source) + "15", border: `1px solid ${sysColor(iface.source)}35`, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: "#334155" }}>
-              <span style={{ width: 8, height: 8, borderRadius: 4, background: sysColor(iface.source) }} />
-              {srcSys?.name || iface.source}
-            </span>
-          </div>
-
-          <div style={{ ...rowStyle, borderBottom: "none" }}>
-            <span style={labelStyle}>Target</span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: sysColor(iface.target) + "15", border: `1px solid ${sysColor(iface.target)}35`, padding: "3px 10px", borderRadius: 12, fontSize: 12, fontWeight: 600, color: "#334155" }}>
-              <span style={{ width: 8, height: 8, borderRadius: 4, background: sysColor(iface.target) }} />
-              {tgtSys?.name || iface.target}
-            </span>
-          </div>
-        </div>
-
-        {/* Requirements & Tests Tree */}
-        <div style={{ padding: "0 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0 8px", cursor: "pointer", userSelect: "none", borderTop: "1px solid #e2e8f0" }} onClick={() => setReqOpen(o => !o)}>
-            <span style={sectionLabelStyle}>
-              Requirements & Tests
-              <span style={{ marginLeft: 6, fontSize: 11, color: "#b0b8c4", fontWeight: 500 }}>{reqs.length} req · {totalTests} tests</span>
-            </span>
-            <span style={chevronStyle(reqOpen)}>▶</span>
-          </div>
-          {reqOpen && (
-            reqs.length > 0 ? <div style={{ paddingBottom: 12 }}>
-              {reqs.map((rq, ri) => {
-                const reqStatus = getReqStatus(rq.tests);
-                const tests = rq.tests || [];
-                const isLast = ri === reqs.length - 1;
-                return (
-                  <div key={rq.id} style={{ marginBottom: isLast ? 0 : 4 }}>
-                    {/* Requirement row */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: "#f8fafc", border: "1px solid #e8ecf1" }}>
-                      <VerifyIcon status={reqStatus} size={18} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "#2563eb", flexShrink: 0 }}>{rq.id}</span>
-                      <span style={{ fontSize: 12, color: "#475569", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rq.label}</span>
-                      <span style={{ fontSize: 10, color: "#94a3b8", flexShrink: 0 }}>{tests.filter(t => t.status === "pass").length}/{tests.length}</span>
-                    </div>
-                    {/* Test children with branch lines */}
-                    {tests.length > 0 && <div style={{ marginLeft: 9, borderLeft: "1.5px solid #e2e8f0", paddingLeft: 0 }}>
-                      {tests.map((t, ti) => {
-                        const isLastTest = ti === tests.length - 1;
-                        return (
-                          <div key={ti} style={{ display: "flex", alignItems: "center", position: "relative" }}>
-                            {/* Branch connector */}
-                            <div style={{ width: 16, height: "100%", position: "relative", flexShrink: 0 }}>
-                              <div style={{ position: "absolute", top: "50%", left: 0, width: 16, height: 0, borderTop: "1.5px solid #e2e8f0" }} />
-                              {isLastTest && <div style={{ position: "absolute", top: "50%", left: -0.75, bottom: 0, width: 2, background: "#fff" }} />}
-                            </div>
-                            {/* Test item */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 10px", flex: 1, marginTop: 3, borderRadius: 7, background: t.status === "pass" ? "#f0fdf4" : t.status === "fail" ? "#fef2f2" : "#fffbeb", border: `1px solid ${t.status === "pass" ? "#dcfce7" : t.status === "fail" ? "#fecaca" : "#fde68a"}` }}>
-                              <VerifyIcon status={t.status} size={15} />
-                              <span style={{ fontSize: 11.5, color: t.status === "pass" ? "#166534" : t.status === "fail" ? "#991b1b" : "#92400e", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>}
+        ) : (
+          <div style={{ padding: "16px 0" }}>
+            {messages.map((msg, i) => (
+              <div key={i} style={{ padding: "8px 20px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                {msg.role === "ai" ? (
+                  <div style={{ width: 26, height: 26, borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3L14.5 8.5L20.5 9.3L16.2 13.4L17.3 19.3L12 16.5L6.7 19.3L7.8 13.4L3.5 9.3L9.5 8.5Z"/></svg>
                   </div>
-                );
-              })}
-            </div>
-            : <div style={{ padding: "4px 0 12px", fontSize: 12.5, color: "#c0c8d4" }}>No requirements linked</div>
-          )}
-        </div>
+                ) : (
+                  <div style={{ width: 26, height: 26, borderRadius: 8, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 11, fontWeight: 700, color: "#fff", marginTop: 2 }}>Y</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: msg.role === "ai" ? "#6366f1" : "#0f172a", marginBottom: 3 }}>{msg.role === "ai" ? "Flow AI" : "You"}</div>
+                  <div style={{ fontSize: 13, color: "#334155", lineHeight: 1.6, wordBreak: "break-word" }}>{msg.content}</div>
+                </div>
+              </div>
+            ))}
+            {isTyping && (
+              <div style={{ padding: "8px 20px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <div style={{ width: 26, height: 26, borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3L14.5 8.5L20.5 9.3L16.2 13.4L17.3 19.3L12 16.5L6.7 19.3L7.8 13.4L3.5 9.3L9.5 8.5Z"/></svg>
+                </div>
+                <div style={{ flex: 1, paddingTop: 6 }}>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {[0, 1, 2].map(j => <div key={j} style={{ width: 6, height: 6, borderRadius: 3, background: "#c7d2fe", animation: `pulse 1.2s ease-in-out ${j * 0.2}s infinite` }} />)}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
+      </div>
 
-        {/* Progress Section */}
-        <div style={{ padding: "0 20px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 0 10px", borderTop: "1px solid #e2e8f0" }}>
-            <span style={sectionLabelStyle}>Progress</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 6 }}>
-            <div style={{ flex: 1, height: 8, background: "#f1f5f9", borderRadius: 4, overflow: "hidden" }}>
-              <div style={{ width: `${progress}%`, height: "100%", background: progress >= 80 ? "linear-gradient(90deg,#22c55e,#16a34a)" : progress >= 40 ? "linear-gradient(90deg,#3b82f6,#2563eb)" : "linear-gradient(90deg,#f59e0b,#d97706)", borderRadius: 4, transition: "width 0.4s ease" }} />
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#1f2937", minWidth: 36, textAlign: "right" }}>{progress}%</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5, color: "#94a3b8" }}>
-            <span>Requirements: {reqs.length}</span>
-            <span>Verified: {iface.verificationStatus === "success" ? "Yes" : "No"}</span>
-          </div>
-        </div>
-
-        {/* Dates */}
-        <div style={{ padding: "0 20px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0 10px", borderTop: "1px solid #e2e8f0" }}>
-            <span style={sectionLabelStyle}>Dates</span>
-          </div>
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Created</div>
-              <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 500 }}>{iface.dateCreated || "—"}</div>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, color: "#9ca3af", marginBottom: 2 }}>Updated</div>
-              <div style={{ fontSize: 12.5, color: "#475569", fontWeight: 500 }}>{iface.dateLastUpdated || "—"}</div>
-            </div>
+      {/* Input area */}
+      <div style={{ padding: "12px 16px 16px", borderTop: "1px solid #e2e8f0", flexShrink: 0 }}>
+        <div style={{ background: "#f8fafc", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={e => setInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+            placeholder="Leave a comment or tag @flow"
+            rows={2}
+            style={{ width: "100%", padding: "12px 14px 8px", border: "none", background: "transparent", fontSize: 13, color: "#334155", resize: "none", outline: "none", fontFamily: "'AktivGrotesk','DM Sans',sans-serif", lineHeight: 1.5, boxSizing: "border-box" }}
+          />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px 8px" }}>
+            <button style={{ width: 28, height: 28, borderRadius: 6, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }} onMouseEnter={e => e.currentTarget.style.color = "#475569"} onMouseLeave={e => e.currentTarget.style.color = "#94a3b8"} title="Attach file">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <button onClick={handleSend} disabled={!input.trim()} style={{ width: 30, height: 30, borderRadius: 8, border: "none", background: input.trim() ? "#3b82f6" : "#e2e8f0", cursor: input.trim() ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", transition: "background 0.15s" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={input.trim() ? "#fff" : "#94a3b8"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+            </button>
           </div>
         </div>
       </div>
+      <style>{`@keyframes pulse { 0%,100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 1; transform: scale(1.2); } }`}</style>
+    </div>
+  );
+}
+
+function Workbench({ tabs, activeTab, onSetActive, onCloseTab, onCloseAll, onOpenReqTab, ifaces, allSystems, allRequirements, onDrop, tabDragOver, setTabDragOver, width }) {
+  const current = tabs[activeTab];
+
+  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setTabDragOver(true); };
+  const handleDragLeave = (e) => { if (!e.currentTarget.contains(e.relatedTarget)) setTabDragOver(false); };
+  const handleDrop = (e) => { e.preventDefault(); setTabDragOver(false); const data = e.dataTransfer.getData("application/json"); if (data) { try { onDrop(JSON.parse(data), activeTab); } catch {} } };
+
+  const fieldRow = (label, value) => (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid #f1f5f9" }}>
+      <span style={{ fontSize: 11.5, color: "#94a3b8", fontWeight: 500, minWidth: 80 }}>{label}</span>
+      <span style={{ fontSize: 12, color: "#1e293b", fontWeight: 500, textAlign: "right", flex: 1 }}>{value}</span>
+    </div>
+  );
+
+  const progressRing = (pct) => {
+    const r = 14, c = 2 * Math.PI * r, offset = c - (pct / 100) * c;
+    const color = pct >= 80 ? "#16a34a" : pct >= 40 ? "#f59e0b" : "#94a3b8";
+    return <svg width="36" height="36" viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
+      <circle cx="18" cy="18" r={r} fill="none" stroke="#f1f5f9" strokeWidth="3" />
+      <circle cx="18" cy="18" r={r} fill="none" stroke={color} strokeWidth="3" strokeDasharray={c} strokeDashoffset={offset} strokeLinecap="round" transform="rotate(-90 18 18)" />
+      <text x="18" y="19" textAnchor="middle" dominantBaseline="middle" fontSize="8.5" fontWeight="700" fill={color}>{pct}%</text>
+    </svg>;
+  };
+
+  const systemBadge = (sysId) => {
+    const sys = allSystems[sysId]; const name = sys?.name || sysId; const color = sys?.color || "#94a3b8";
+    return <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: color + "12", border: `1px solid ${color}30`, padding: "3px 9px", borderRadius: 10, fontSize: 11.5, fontWeight: 500, color: "#334155" }}>
+      <span style={{ width: 7, height: 7, borderRadius: 4, background: color }} />{name}
+    </span>;
+  };
+
+  const maturityBadge = (level) => {
+    const cfg = { verified: { bg: "#dcfce7", color: "#166534", border: "#bbf7d0" }, defined: { bg: "#dbeafe", color: "#1e40af", border: "#bfdbfe" }, concept: { bg: "#f1f5f9", color: "#475569", border: "#e2e8f0" } };
+    const c = cfg[level] || cfg.concept;
+    return <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 9px", borderRadius: 10, background: c.bg, color: c.color, border: `1px solid ${c.border}`, textTransform: "capitalize" }}>{level || "—"}</span>;
+  };
+
+  const typeBadge = (t) => {
+    if (!t) return <span style={{ color: "#c0c8d4" }}>—</span>;
+    const cfg = { Electrical: { bg: "#fef3c7", color: "#92400e" }, Mechanical: { bg: "#dcfce7", color: "#166534" }, Signal: { bg: "#fce7f3", color: "#9d174d" } };
+    const c = cfg[t] || { bg: "#f1f5f9", color: "#475569" };
+    return <span style={{ fontSize: 11, fontWeight: 600, padding: "2px 9px", borderRadius: 10, background: c.bg, color: c.color }}>{t}</span>;
+  };
+
+  const tabLabel = (tab) => {
+    if (tab.type === "interface") { const iface = ifaces.find(i => i.id === tab.id); return iface ? iface.name : tab.id; }
+    if (tab.type === "requirement") { const ref = allRequirements.find(r => r.id === tab.id); return ref ? `${tab.id} ${ref.label}` : tab.id; }
+    return tab.id;
+  };
+  const tabShortLabel = (tab) => {
+    if (tab.type === "interface") return tab.id;
+    return tab.id;
+  };
+  const tabIcon = (tab) => {
+    if (tab.type === "interface") return <span style={{ color: "#64748b", fontSize: 12, lineHeight: 1 }}>∞</span>;
+    return <ReqIcon size={10} />;
+  };
+
+  // --- Interface content ---
+  const renderInterface = (tab) => {
+    const iface = ifaces.find(i => i.id === tab.id);
+    if (!iface) return <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#c0c8d4", fontSize: 13 }}>Interface not found</div>;
+    const reqs = iface.requirements || [];
+    return <>
+      <div style={{ padding: "14px 20px 10px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+          <span style={{ fontSize: 10, fontWeight: 600, color: "#2563eb", background: "#eff6ff", padding: "1px 6px", borderRadius: 4, border: "1px solid #bfdbfe" }}>{iface.id}</span>
+          <VerifyIcon status={iface.verificationStatus === "success" ? "pass" : iface.verificationStatus === "fail" ? "fail" : "pending"} size={14} />
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>{iface.name}</div>
+        {iface.desc && <div style={{ fontSize: 11.5, color: "#64748b", marginTop: 3, lineHeight: 1.4 }}>{iface.desc}</div>}
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {progressRing(iface.progress)}
+            <div>
+              <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500 }}>Progress</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b" }}>{iface.progress}%</div>
+            </div>
+          </div>
+          <div style={{ width: 1, height: 28, background: "#e2e8f0" }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <VerifyIcon status={iface.verificationStatus === "success" ? "pass" : iface.verificationStatus === "fail" ? "fail" : "pending"} size={20} />
+            <div>
+              <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500 }}>Verification</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", textTransform: "capitalize" }}>{iface.verificationStatus}</div>
+            </div>
+          </div>
+        </div>
+        {fieldRow("Maturity", maturityBadge(iface.maturityLevel))}
+        {fieldRow("Type", typeBadge(iface.interfaceType))}
+        {fieldRow("Owner", iface.owner || <span style={{ color: "#c0c8d4" }}>—</span>)}
+        {fieldRow("Team", iface.team || <span style={{ color: "#c0c8d4" }}>—</span>)}
+        {fieldRow("Source", systemBadge(iface.source))}
+        {fieldRow("Target", systemBadge(iface.target))}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Requirements ({reqs.length})</div>
+          {reqs.length === 0 && <div style={{ fontSize: 12, color: "#c0c8d4", padding: "6px 0" }}>No requirements linked</div>}
+          {reqs.map(rq => {
+            const ref = allRequirements.find(r => r.id === rq.id);
+            const tests = rq.tests || [];
+            const reqStatus = getReqStatus(tests);
+            return <div key={rq.id} style={{ marginBottom: 2 }}>
+              <div onClick={() => onOpenReqTab(rq.id, iface.id)}
+                style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 10px", borderRadius: 7, cursor: "pointer", background: "#f8fafc", border: "1px solid #f1f5f9", marginBottom: 3 }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#eff6ff"; e.currentTarget.style.borderColor = "#bfdbfe"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#f8fafc"; e.currentTarget.style.borderColor = "#f1f5f9"; }}>
+                <ReqIcon size={13} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: "#2563eb", flexShrink: 0 }}>{rq.id}</span>
+                <span style={{ fontSize: 11.5, color: "#475569", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ref?.label || ""}</span>
+                <VerifyIcon status={reqStatus} size={14} />
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#b0b8c4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </div>
+              {tests.map((t, ti) => (
+                <div key={ti} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 10px 3px 28px", fontSize: 11 }}>
+                  <TestIcon status={t.status} size={11} />
+                  <span style={{ color: t.status === "pass" ? "#166534" : t.status === "fail" ? "#991b1b" : "#92400e", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+                  <VerifyIcon status={t.status} size={12} />
+                </div>
+              ))}
+            </div>;
+          })}
+        </div>
+      </div>
+    </>;
+  };
+
+  // --- Requirement content ---
+  const renderRequirement = (tab) => {
+    const parentIface = ifaces.find(i => i.id === tab.parentIfaceId);
+    const reqData = parentIface?.requirements?.find(r => r.id === tab.id);
+    const ref = allRequirements.find(r => r.id === tab.id);
+    const tests = reqData?.tests || [];
+    const reqStatus = getReqStatus(tests);
+    return <>
+      <div style={{ padding: "14px 20px 10px", borderBottom: "1px solid #f1f5f9", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+          <ReqIcon size={14} />
+          <span style={{ fontSize: 10, fontWeight: 600, color: "#2563eb", background: "#eff6ff", padding: "1px 6px", borderRadius: 4, border: "1px solid #bfdbfe" }}>{tab.id}</span>
+          <VerifyIcon status={reqStatus} size={14} />
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a", lineHeight: 1.3 }}>{ref?.label || "Requirement"}</div>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 0", borderBottom: "1px solid #f1f5f9" }}>
+          <VerifyIcon status={reqStatus} size={20} />
+          <div>
+            <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 500 }}>Verification Status</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#1e293b", textTransform: "capitalize" }}>{reqStatus}</div>
+          </div>
+        </div>
+        {parentIface && fieldRow("Interface", <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 500 }}>
+          <span style={{ color: "#2563eb" }}>∞</span> {parentIface.name} <span style={{ color: "#94a3b8", fontSize: 10 }}>({parentIface.id})</span>
+        </span>)}
+        <div style={{ marginTop: 14 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#475569", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>Tests ({tests.length})</div>
+          {tests.length === 0 && <div style={{ fontSize: 12, color: "#c0c8d4", padding: "6px 0" }}>No tests defined</div>}
+          {tests.map((t, ti) => (
+            <div key={ti} style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px", borderRadius: 7, background: "#f8fafc", border: "1px solid #f1f5f9", marginBottom: 3 }}>
+              <TestIcon status={t.status} size={13} />
+              <span style={{ fontSize: 12, color: t.status === "pass" ? "#166534" : t.status === "fail" ? "#991b1b" : "#92400e", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500 }}>{t.name}</span>
+              <VerifyIcon status={t.status} size={14} />
+            </div>
+          ))}
+        </div>
+      </div>
+    </>;
+  };
+
+  // --- Main render ---
+  return (
+    <div onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
+      style={{ width: width || 380, background: "#fff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", overflow: "hidden", position: "relative", boxShadow: tabDragOver ? "inset 0 0 0 2px #3b82f6" : "none", transition: "box-shadow 0.2s" }}>
+      {tabDragOver && <div style={{ position: "absolute", inset: 0, background: "rgba(59,130,246,0.05)", zIndex: 5, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+        <div style={{ background: "#eff6ff", border: "2px dashed #3b82f6", borderRadius: 10, padding: "14px 22px", fontSize: 12.5, fontWeight: 600, color: "#2563eb" }}>Drop to add</div>
+      </div>}
+
+      {/* Tab bar — Cursor-style */}
+      <div style={{ display: "flex", alignItems: "stretch", background: "#f1f5f9", borderBottom: "1px solid #e2e8f0", flexShrink: 0, minHeight: 35 }}>
+        <div style={{ display: "flex", flex: 1, overflow: "hidden", alignItems: "stretch" }}>
+          {tabs.map((tab, i) => {
+            const isActive = i === activeTab;
+            return <div key={tab.type + "-" + tab.id} onClick={() => onSetActive(i)}
+              style={{ display: "flex", alignItems: "center", gap: 5, padding: "0 3px 0 10px", minWidth: 0, maxWidth: 150, cursor: "pointer", fontSize: 11, fontWeight: isActive ? 600 : 400,
+                color: isActive ? "#0f172a" : "#64748b",
+                background: isActive ? "#fff" : "transparent",
+                borderRight: "1px solid #e2e8f0",
+                borderBottom: isActive ? "none" : "1px solid #e2e8f0",
+                borderTop: isActive ? "2px solid #2563eb" : "2px solid transparent",
+                marginBottom: isActive ? -1 : 0,
+                position: "relative", flexShrink: 1, userSelect: "none", transition: "background 0.1s" }}
+              onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = "#f8fafc"; }}
+              onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = "transparent"; }}>
+              {tabIcon(tab)}
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{tabShortLabel(tab)}</span>
+              <span onClick={e => { e.stopPropagation(); onCloseTab(i); }}
+                style={{ width: 18, height: 18, borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#94a3b8", fontSize: 13, lineHeight: 1, cursor: "pointer" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#e2e8f0"; e.currentTarget.style.color = "#475569"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}>×</span>
+            </div>;
+          })}
+        </div>
+        {/* Collapse panel button */}
+        <button onClick={onCloseAll} title="Close panel"
+          style={{ width: 34, flexShrink: 0, border: "none", borderLeft: "1px solid #e2e8f0", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8" }}
+          onMouseEnter={e => { e.currentTarget.style.background = "#e8ebef"; e.currentTarget.style.color = "#475569"; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#94a3b8"; }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="11 17 6 12 11 7"/><line x1="18" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      {/* Active tab content */}
+      {current?.type === "interface" && renderInterface(current)}
+      {current?.type === "requirement" && renderRequirement(current)}
+
+      {/* Empty state */}
+      {!current && <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 32, textAlign: "center" }}>
+        <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="9"/></svg>
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#475569", marginBottom: 4 }}>No tabs open</div>
+        <div style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.4 }}>Click an interface or drag items here</div>
+      </div>}
     </div>
   );
 }
@@ -904,7 +1069,7 @@ function TableView({ ifaces, allSystems, allRequirements }) {
 
   return <div style={{ flex: 1, overflow: "auto", background: "#fff" }}>
     <div style={{ padding: "10px 16px", fontSize: 11.5, color: "#64748b", borderBottom: "1px solid #f1f5f9", background: "#f8fafc", fontWeight: 500 }}>Showing {ifaces.length} interface{ifaces.length !== 1 ? "s" : ""}</div>
-    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "'DM Sans',sans-serif" }}>
+    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, fontFamily: "'AktivGrotesk','DM Sans',sans-serif" }}>
       <thead>
         <tr style={{ borderBottom: "2px solid #e2e8f0" }}>
           {columns.map(col => <th key={col.key} onClick={() => toggleSort(col.key)} style={{ padding: "12px 16px", textAlign: "left", fontSize: 10.5, fontWeight: 700, color: "#64748b", letterSpacing: "0.5px", cursor: "pointer", userSelect: "none", whiteSpace: "nowrap", position: "sticky", top: 0, background: "#fff", zIndex: 1 }}>
@@ -940,6 +1105,15 @@ function TableView({ ifaces, allSystems, allRequirements }) {
   </div>;
 }
 
+function ResizeHandle({ onMouseDown: onMD }) {
+  return <div onMouseDown={onMD}
+    style={{ width: 6, cursor: "col-resize", flexShrink: 0, zIndex: 15, position: "relative" }}
+    onMouseEnter={e => { e.currentTarget.firstChild.style.opacity = "1"; }}
+    onMouseLeave={e => { e.currentTarget.firstChild.style.opacity = "0"; }}>
+    <div style={{ position: "absolute", inset: "0", width: 3, margin: "0 auto", background: "#3b82f6", borderRadius: 2, opacity: 0, transition: "opacity 0.15s", pointerEvents: "none" }} />
+  </div>;
+}
+
 export default function SERMTool() {
   const [expanded, setExpanded] = useState(new Set(["launch-vehicle"]));
   const [ifaces, setIfaces] = useState(initIfaces);
@@ -972,9 +1146,27 @@ export default function SERMTool() {
   const [viewStates, setViewStates] = useState({});
   const [dotOverrides, setDotOverrides] = useState({});
   const [draggingDot, setDraggingDot] = useState(null);
-  const [detailId, setDetailId] = useState(null);
-  const [detailEditing, setDetailEditing] = useState(false);
-
+  const [workbenchOpen, setWorkbenchOpen] = useState(false);
+  const [wbTabs, setWbTabs] = useState([]);
+  const [wbActiveTab, setWbActiveTab] = useState(0);
+  const [tabDragOver, setTabDragOver] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [chatCollapsed, setChatCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(284);
+  const [workbenchWidth, setWorkbenchWidth] = useState(380);
+  const [chatWidth, setChatWidth] = useState(284);
+  const [typeFilter, setTypeFilter] = useState(new Set()); // empty = show all
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef(null);
+  const [savedViews, setSavedViews] = useState([]);
+  const [activeViewId, setActiveViewId] = useState(null);
+  const [viewsOpen, setViewsOpen] = useState(false);
+  const [saveViewModal, setSaveViewModal] = useState(false);
+  const [saveViewName, setSaveViewName] = useState("");
+  const viewsRef = useRef(null);
+  const [viewModified, setViewModified] = useState(false);
+  const [viewsBtnHov, setViewsBtnHov] = useState(false);
+  const resizingRef = useRef(null);
 
   const panRef = useRef({}); const dragRef = useRef({}); const svgRef = useRef(null); const canvasRef = useRef(null);
   const zoomRef = useRef(zoom); zoomRef.current = zoom;
@@ -993,6 +1185,33 @@ export default function SERMTool() {
 
   useEffect(() => { if (!canvasRef.current) return; const ro = new ResizeObserver(e => { for (const en of e) setViewSize({ w: en.contentRect.width, h: en.contentRect.height }); }); ro.observe(canvasRef.current); return () => ro.disconnect(); }, []);
   useEffect(() => { if (!selId) return; const iface = ifaces.find(i => i.id === selId); if (!iface) return; setSbExp(p => { const n = new Set(p); [iface.source, iface.target].forEach(s => { n.add(s); getAncestorIds(s, parentMap).forEach(a => n.add(a)); }); return n; }); }, [selId, ifaces, parentMap]);
+
+  useEffect(() => {
+    const onMouseMove = (e) => {
+      if (!resizingRef.current) return;
+      const { type, startX, startWidth } = resizingRef.current;
+      const delta = e.clientX - startX;
+      if (type === "sidebar") setSidebarWidth(Math.max(180, Math.min(500, startWidth + delta)));
+      else if (type === "workbench") setWorkbenchWidth(Math.max(260, Math.min(700, startWidth + delta)));
+      else if (type === "chat") setChatWidth(Math.max(260, Math.min(700, startWidth - delta)));
+    };
+    const onMouseUp = () => {
+      if (!resizingRef.current) return;
+      resizingRef.current = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+  }, []);
+
+  const startResize = useCallback((type, currentWidth, e) => {
+    e.preventDefault();
+    resizingRef.current = { type, startX: e.clientX, startWidth: currentWidth };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, []);
 
   const baseLayout = useMemo(() => computeLayout(expanded, ifaces), [expanded, ifaces]);
 
@@ -1129,21 +1348,29 @@ export default function SERMTool() {
     setLineDragStart({ x: e.clientX, startMidX: currentMidX });
   }, []);
 
-  // Native wheel listener on canvas (passive: false) to prevent browser pinch-zoom
-  useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) return;
-    const handler = (e) => {
-      e.preventDefault();
+  // Wheel handler ref — always points to latest logic
+  const wheelHandlerRef = useRef(null);
+  wheelHandlerRef.current = (e) => {
+    e.preventDefault();
+    const p = panValRef.current;
+    const isPinch = e.ctrlKey || e.metaKey;
+    if (isPinch) {
       const r = svgRef.current.getBoundingClientRect();
       const cx = e.clientX - r.left, cy = e.clientY - r.top;
-      const delta = -e.deltaY * 0.001;
-      const z = zoomRef.current, p = panValRef.current;
-      const newZoom = Math.max(0.15, Math.min(3, z + delta));
+      const delta = -e.deltaY * 0.01;
+      const z = zoomRef.current;
+      const newZoom = Math.max(0.15, Math.min(3, z * (1 + delta)));
       const ratio = newZoom / z;
       setZoom(newZoom);
       setPan({ x: cx - (cx - p.x) * ratio, y: cy - (cy - p.y) * ratio });
-    };
+    } else {
+      setPan({ x: p.x - e.deltaX, y: p.y - e.deltaY });
+    }
+  };
+  useEffect(() => {
+    const el = canvasRef.current;
+    if (!el) return;
+    const handler = (e) => wheelHandlerRef.current(e);
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
   }, []);
@@ -1155,6 +1382,22 @@ export default function SERMTool() {
     document.addEventListener("gesturechange", prevent, { passive: false });
     return () => { document.removeEventListener("gesturestart", prevent); document.removeEventListener("gesturechange", prevent); };
   }, []);
+
+  // Close filter dropdown on click outside
+  useEffect(() => {
+    if (!filterOpen) return;
+    const handleClick = (e) => { if (filterRef.current && !filterRef.current.contains(e.target)) setFilterOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [filterOpen]);
+
+  // Close views dropdown on click outside
+  useEffect(() => {
+    if (!viewsOpen) return;
+    const handleClick = (e) => { if (viewsRef.current && !viewsRef.current.contains(e.target)) setViewsOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [viewsOpen]);
 
   useEffect(() => {
     const onMove = (e) => {
@@ -1218,12 +1461,15 @@ export default function SERMTool() {
         if (tid) setModal({ mode: "drag", sourceId: connecting.sourceId, targetId: tid });
         setConnecting(null);
       }
-      if (dragging) { rawDragAccum.current = {}; }
+      if (dragging) { rawDragAccum.current = {}; if (activeViewId) setViewModified(true); }
+      if (draggingPill && activeViewId) setViewModified(true);
+      if (draggingLine && activeViewId) setViewModified(true);
+      if (draggingDot && activeViewId) setViewModified(true);
       setDragging(null); setPanSt(false); setDraggingPill(null); setPillDragStart(null); setDraggingLine(null); setLineDragStart(null);
     };
     window.addEventListener("mousemove", onMove); window.addEventListener("mouseup", onUp);
     return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
-  }, [dragging, panning, connecting, draggingPill, pillDragStart, draggingDot, draggingLine, lineDragStart, zoom, pan, visible]);
+  }, [dragging, panning, connecting, draggingPill, pillDragStart, draggingDot, draggingLine, lineDragStart, zoom, pan, visible, activeViewId]);
 
   const handleCreate = (src, tgt, name, desc, requirements) => {
     const mx = Math.max(0, ...ifaces.map(i => parseInt(i.id.split("-")[1]) || 0));
@@ -1231,17 +1477,96 @@ export default function SERMTool() {
     const now = new Date().toISOString().split("T")[0];
     const reqs = (requirements || []).map(rId => ({ id: rId, tests: [] }));
     setIfaces(p => [...p, { id: nid, source: src, target: tgt, name, desc: desc || "", interfaceType: "", requirements: reqs, verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "", progress: 0, dateCreated: now, dateLastUpdated: now }]);
-    setModal(null); setSelId(nid); setDetailId(null);
+    setModal(null); setSelId(nid);
     // Auto expand sidebar for new interface
     setSbExp(p => { const n = new Set(p); n.add(src); n.add(tgt); getAncestorIds(src, parentMap).forEach(a => n.add(a)); getAncestorIds(tgt, parentMap).forEach(a => n.add(a)); return n; });
   };
-  const handleDetailClose = useCallback(() => { setDetailId(null); setDetailEditing(false); }, []);
-  const handleDetailSave = useCallback((updates) => {
-    setIfaces(prev => prev.map(i => i.id === detailId ? { ...i, name: updates.name, desc: updates.desc, interfaceType: updates.interfaceType, requirements: updates.requirements, owner: updates.owner, dateLastUpdated: new Date().toISOString().split("T")[0] } : i));
-    setDetailEditing(false);
-  }, [detailId]);
+  const wbOpenTab = useCallback((type, id, parentIfaceId) => {
+    setWorkbenchOpen(true);
+    setWbTabs(prev => {
+      const existing = prev.findIndex(t => t.type === type && t.id === id);
+      if (existing >= 0) { setWbActiveTab(existing); return prev; }
+      const next = [...prev, { type, id, parentIfaceId }];
+      setWbActiveTab(next.length - 1);
+      return next;
+    });
+    if (type === "interface") setSelId(id);
+  }, []);
+  const wbCloseTab = useCallback((idx) => {
+    setWbTabs(prev => {
+      const next = prev.filter((_, i) => i !== idx);
+      if (next.length === 0) { setWbActiveTab(0); setWorkbenchOpen(false); setSelId(null); return next; }
+      setWbActiveTab(a => a >= next.length ? next.length - 1 : a > idx ? a - 1 : a === idx ? Math.min(idx, next.length - 1) : a);
+      return next;
+    });
+  }, []);
+  const wbCloseAll = useCallback(() => { setWorkbenchOpen(false); setWbTabs([]); setWbActiveTab(0); setSelId(null); }, []);
   const togSb = useCallback((id) => { setSbExp(p => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); }, []);
   const togSbIface = useCallback((key) => { setSbIfaceExp(p => { const n = new Set(p); if (n.has(key)) n.delete(key); else n.add(key); return n; }); }, []);
+  const handleSaveView = useCallback((name) => {
+    const id = "view-" + Date.now();
+    const snapshot = {
+      id, name,
+      dragOffsets: { ...dragOffsetsRef.current },
+      pillOffsets: { ...pillOffsetsRef.current },
+      lineOffsets: { ...lineOffsetsRef.current },
+      dotOverrides: { ...dotOverridesRef.current },
+      pan: { ...panValRef.current },
+      zoom: zoomRef.current,
+      expanded: [...expandedRef.current],
+      focusId: focusIdRef.current,
+      revealed: [...(focusIdRef.current ? revealed : [])],
+      typeFilter: [...typeFilter],
+      createdAt: Date.now(),
+    };
+    setSavedViews(prev => [...prev, snapshot]);
+    setActiveViewId(id);
+    setViewModified(false);
+  }, [revealed, typeFilter]);
+
+  const handleLoadView = useCallback((view) => {
+    setDragOffsets(view.dragOffsets || {});
+    setPillOffsets(view.pillOffsets || {});
+    setLineOffsets(view.lineOffsets || {});
+    setDotOverrides(view.dotOverrides || {});
+    setPan(view.pan || { x: 0, y: 0 });
+    setZoom(view.zoom || 0.6);
+    setExpanded(new Set(view.expanded || ["launch-vehicle"]));
+    setFocusId(view.focusId || null);
+    setRevealed(new Set(view.revealed || []));
+    setTypeFilter(new Set(view.typeFilter || []));
+    rawDragAccum.current = {};
+    setActiveViewId(view.id);
+    setViewModified(false);
+    initialCentered.current = true;
+  }, []);
+
+  const handleUpdateView = useCallback(() => {
+    if (!activeViewId) return;
+    setSavedViews(prev => prev.map(v => {
+      if (v.id !== activeViewId) return v;
+      return {
+        ...v,
+        dragOffsets: { ...dragOffsetsRef.current },
+        pillOffsets: { ...pillOffsetsRef.current },
+        lineOffsets: { ...lineOffsetsRef.current },
+        dotOverrides: { ...dotOverridesRef.current },
+        pan: { ...panValRef.current },
+        zoom: zoomRef.current,
+        expanded: [...expandedRef.current],
+        focusId: focusIdRef.current,
+        revealed: [...(focusIdRef.current ? revealed : [])],
+        typeFilter: [...typeFilter],
+      };
+    }));
+    setViewModified(false);
+  }, [activeViewId, revealed, typeFilter]);
+
+  const handleDeleteView = useCallback((viewId) => {
+    setSavedViews(prev => prev.filter(v => v.id !== viewId));
+    if (activeViewId === viewId) { setActiveViewId(null); setViewModified(false); }
+  }, [activeViewId]);
+
   const focusSys = useCallback((id) => {
     const currentKey = focusIdRef.current || "__all__";
     setViewStates(prev => ({ ...prev, [currentKey]: { dragOffsets: dragOffsetsRef.current, pillOffsets: pillOffsetsRef.current, dotOverrides: dotOverridesRef.current, lineOffsets: lineOffsetsRef.current } }));
@@ -1260,7 +1585,7 @@ export default function SERMTool() {
   const leafRects = useMemo(() => leaves.map(b => ({ x: b.x, y: b.y, w: b.w, h: b.h })), [leaves]);
 
   return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", margin: 0, padding: 0, fontFamily: "'DM Sans',sans-serif", background: "#f1f5f9", overflow: "hidden" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, display: "flex", flexDirection: "column", margin: 0, padding: 0, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", background: "#f1f5f9", overflow: "hidden" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
       {/* Top bar */}
       <div style={{ height: 46, background: "#0f172a", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 20px", flexShrink: 0 }}>
@@ -1271,23 +1596,18 @@ export default function SERMTool() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <span style={{ color: "#94a3b8", fontSize: 12.5 }}>Project: <span style={{ color: "#fff", fontWeight: 600 }}>Launch Vehicle Program</span></span>
-          <div style={{ display: "flex", background: "#1e293b", borderRadius: 6, padding: 2 }}>
-            <button onClick={() => setViewMode("architecture")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", fontSize: 11.5, fontWeight: 600, cursor: "pointer", background: viewMode === "architecture" ? "#3b82f6" : "transparent", color: viewMode === "architecture" ? "#fff" : "#94a3b8", transition: "all 0.15s" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 4 }}><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-              Architecture
-            </button>
-            <button onClick={() => setViewMode("table")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", fontSize: 11.5, fontWeight: 600, cursor: "pointer", background: viewMode === "table" ? "#3b82f6" : "transparent", color: viewMode === "table" ? "#fff" : "#94a3b8", transition: "all 0.15s" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: "middle", marginRight: 4 }}><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-              Table
-            </button>
-          </div>
         </div>
       </div>
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         {/* Sidebar */}
-        <div style={{ width: 284, background: "#fff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0 }}>
-          <div style={{ padding: "12px 12px 0" }}>
-            <button onClick={() => { setModal({ mode: "full" }); setDetailId(null); }} style={{ width: "100%", padding: "9px 0", borderRadius: 7, border: "none", background: "linear-gradient(135deg,#2563eb,#3b82f6)", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer", marginBottom: 10, boxShadow: "0 2px 6px rgba(37,99,235,0.25)" }}>+ New Interface</button>
+        <div style={{ width: sidebarCollapsed ? 0 : sidebarWidth, background: "#fff", borderRight: sidebarCollapsed ? "none" : "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0, overflow: "hidden", transition: resizingRef.current ? "none" : "width 0.2s ease", position: "relative" }}>
+          <div style={{ padding: "12px 12px 0", minWidth: sidebarWidth }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <button onClick={() => setModal({ mode: "full" })} style={{ flex: 1, padding: "9px 0", borderRadius: 7, border: "none", background: "linear-gradient(135deg,#2563eb,#3b82f6)", color: "#fff", fontSize: 12.5, fontWeight: 600, cursor: "pointer", boxShadow: "0 2px 6px rgba(37,99,235,0.25)" }}>+ New Interface</button>
+              <button onClick={() => setSidebarCollapsed(true)} title="Collapse sidebar" style={{ width: 32, height: 32, borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#94a3b8" }} onMouseEnter={e => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.color = "#475569"; }} onMouseLeave={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#94a3b8"; }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="11 17 6 12 11 7"/><line x1="18" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
             {breadcrumb && <div style={{ display: "flex", alignItems: "center", gap: 2, padding: "4px 4px 8px", flexWrap: "wrap" }}>
               {breadcrumb.map((b, i) => <span key={i} style={{ display: "flex", alignItems: "center", gap: 2 }}>
                 {i > 0 && <span style={{ fontSize: 9, color: "#c0c8d4" }}>›</span>}
@@ -1295,14 +1615,48 @@ export default function SERMTool() {
               </span>)}
             </div>}
           </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: "2px 6px" }}>
-            <SidebarTree nodes={hierarchy} ifaces={ifaces} selId={selId} hovId={hovId} onSel={id => setSelId(selId === id ? null : id)} onHov={setHovId} sbExp={sbExp} togSb={togSb} focusSys={focusSys} hovSys={hovSys} setHovSys={setHovSys} onQuickAdd={sysId => setModal({ mode: "quick", sourceId: sysId })} allRequirements={allRequirements} sbIfaceExp={sbIfaceExp} togSbIface={togSbIface} />
+          <div style={{ flex: 1, overflowY: "auto", padding: "2px 6px", minWidth: sidebarWidth }}>
+            <SidebarTree nodes={hierarchy} ifaces={ifaces} selId={selId} hovId={hovId} onSel={id => { wbOpenTab("interface", id); }} onHov={setHovId} sbExp={sbExp} togSb={togSb} focusSys={focusSys} hovSys={hovSys} setHovSys={setHovSys} onQuickAdd={sysId => setModal({ mode: "quick", sourceId: sysId })} allRequirements={allRequirements} sbIfaceExp={sbIfaceExp} togSbIface={togSbIface} />
           </div>
         </div>
-        {/* Canvas */}
-        {viewMode === "table" && <TableView ifaces={ifaces} allSystems={positioned} allRequirements={allRequirements} />}
-        <div ref={canvasRef} style={{ flex: 1, position: "relative", overflow: "hidden", touchAction: "none", display: viewMode === "architecture" ? undefined : "none", transition: "flex 0.25s ease" }}>
-          <div style={{ position: "absolute", top: 14, left: 18, zIndex: 10, fontSize: 15, fontWeight: 700, color: "#0f172a", background: "rgba(241,245,249,0.92)", padding: "5px 12px", borderRadius: 7, backdropFilter: "blur(8px)" }}>Architecture View{focusId && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}> (focused)</span>}</div>
+        {sidebarCollapsed && <button onClick={() => setSidebarCollapsed(false)} title="Expand sidebar" style={{ position: "absolute", top: 60, left: 8, zIndex: 20, width: 28, height: 28, borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }} onMouseEnter={e => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.color = "#475569"; }} onMouseLeave={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#94a3b8"; }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 7 18 12 13 17"/><line x1="6" y1="6" x2="6" y2="18"/></svg>
+        </button>}
+        {!sidebarCollapsed && <ResizeHandle onMouseDown={e => startResize("sidebar", sidebarWidth, e)} />}
+        {/* Workbench Panel */}
+        {workbenchOpen && <Workbench
+          tabs={wbTabs} activeTab={wbActiveTab} onSetActive={(i) => { setWbActiveTab(i); const t = wbTabs[i]; if (t?.type === "interface") setSelId(t.id); else setSelId(null); }} onCloseTab={wbCloseTab} onCloseAll={wbCloseAll}
+          onOpenReqTab={(reqId, parentIfaceId) => wbOpenTab("requirement", reqId, parentIfaceId)}
+          ifaces={ifaces} allSystems={positioned} allRequirements={allRequirements}
+          onDrop={(data) => {
+            const current = wbTabs[wbActiveTab];
+            if (current?.type === "interface" && data.type === "requirement") {
+              setIfaces(prev => prev.map(i => {
+                if (i.id !== current.id) return i;
+                if (i.requirements.some(r => r.id === data.id)) return i;
+                return { ...i, requirements: [...i.requirements, { id: data.id, tests: [] }], dateLastUpdated: new Date().toISOString().split("T")[0] };
+              }));
+            }
+          }}
+          tabDragOver={tabDragOver} setTabDragOver={setTabDragOver}
+          width={workbenchWidth}
+        />}
+        {workbenchOpen && <ResizeHandle onMouseDown={e => startResize("workbench", workbenchWidth, e)} />}
+        {/* Center area: toggle + canvas/table */}
+        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: 14, left: 18, zIndex: 10, display: "flex", alignItems: "center", gap: 8, background: "rgba(241,245,249,0.92)", padding: "3px", borderRadius: 7, backdropFilter: "blur(8px)", border: "1px solid #e2e8f0" }}>
+            <button onClick={() => setViewMode("architecture")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", background: viewMode === "architecture" ? "#fff" : "transparent", color: viewMode === "architecture" ? "#0f172a" : "#94a3b8", transition: "all 0.15s", boxShadow: viewMode === "architecture" ? "0 1px 3px rgba(0,0,0,0.08)" : "none", display: "flex", alignItems: "center", gap: 5 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+              Architecture
+            </button>
+            <button onClick={() => setViewMode("table")} style={{ padding: "5px 12px", borderRadius: 5, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer", background: viewMode === "table" ? "#fff" : "transparent", color: viewMode === "table" ? "#0f172a" : "#94a3b8", transition: "all 0.15s", boxShadow: viewMode === "table" ? "0 1px 3px rgba(0,0,0,0.08)" : "none", display: "flex", alignItems: "center", gap: 5 }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+              Table
+            </button>
+            {focusId && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500, paddingRight: 8 }}>(focused)</span>}
+          </div>
+          {viewMode === "table" && <div style={{ position: "absolute", inset: 0, top: 48, overflow: "auto" }}><TableView ifaces={ifaces} allSystems={positioned} allRequirements={allRequirements} /></div>}
+          <div ref={canvasRef} style={{ position: "absolute", inset: 0, touchAction: "none", display: viewMode === "architecture" ? undefined : "none" }}>
           <div style={{ position: "absolute", bottom: 16, right: 16, zIndex: 10, display: "flex", alignItems: "center", gap: 2, background: "#fff", borderRadius: 7, boxShadow: "0 1px 6px rgba(0,0,0,0.08)", border: "1px solid #e2e8f0" }}>
             <button onClick={() => { const r = svgRef.current.getBoundingClientRect(); const cx = r.width / 2, cy = r.height / 2; const nz = Math.min(3, zoom + 0.15); const ratio = nz / zoom; setPan({ x: cx - (cx - pan.x) * ratio, y: cy - (cy - pan.y) * ratio }); setZoom(nz); }} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 15, color: "#475569" }}>+</button>
             <div style={{ width: 1, height: 18, background: "#e2e8f0" }} />
@@ -1310,7 +1664,81 @@ export default function SERMTool() {
             <div style={{ width: 1, height: 18, background: "#e2e8f0" }} />
             <button onClick={() => { const r = svgRef.current.getBoundingClientRect(); const cx = r.width / 2, cy = r.height / 2; const nz = Math.max(0.15, zoom - 0.15); const ratio = nz / zoom; setPan({ x: cx - (cx - pan.x) * ratio, y: cy - (cy - pan.y) * ratio }); setZoom(nz); }} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 15, color: "#475569" }}>−</button>
           </div>
-          <button onClick={() => { setDragOffsets({}); setPillOffsets({}); setLineOffsets({}); setDotOverrides({}); rawDragAccum.current = {}; setCenterTrigger(c => c + 1); }} style={{ position: "absolute", top: 14, right: 18, zIndex: 10, display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, fontWeight: 600, color: "#475569", cursor: "pointer", boxShadow: "0 1px 6px rgba(0,0,0,0.06)", backdropFilter: "blur(8px)" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Layout</button>
+          <div style={{ position: "absolute", top: 14, right: 18, zIndex: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            <div ref={filterRef} style={{ position: "relative" }}>
+              <button onClick={() => setFilterOpen(f => !f)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: `1px solid ${typeFilter.size > 0 ? "#2563eb" : "#e2e8f0"}`, background: typeFilter.size > 0 ? "#eff6ff" : "#fff", fontSize: 12, fontWeight: 600, color: typeFilter.size > 0 ? "#2563eb" : "#475569", cursor: "pointer", boxShadow: "0 1px 6px rgba(0,0,0,0.06)", backdropFilter: "blur(8px)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                Filter
+              </button>
+              {filterOpen && <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", padding: "8px 0", minWidth: 180, zIndex: 20 }}>
+                <div style={{ padding: "4px 14px 8px", fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>Interface Type</div>
+                {["Signal", "Mechanical", "Electrical"].map(t => {
+                  const active = typeFilter.has(t);
+                  const cfg = { Signal: { bg: "#fce7f3", color: "#9d174d", dot: "#ec4899" }, Mechanical: { bg: "#dcfce7", color: "#166534", dot: "#22c55e" }, Electrical: { bg: "#fef3c7", color: "#92400e", dot: "#f59e0b" } };
+                  const c = cfg[t];
+                  return <button key={t} onClick={() => { setTypeFilter(prev => { const n = new Set(prev); if (n.has(t)) n.delete(t); else n.add(t); return n; }); setActiveViewId(null); setViewModified(false); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 14px", border: "none", background: active ? "#f8fafc" : "transparent", cursor: "pointer", fontSize: 12.5, fontWeight: 500, color: "#334155", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = active ? "#f8fafc" : "transparent"}>
+                    <span style={{ width: 16, height: 16, borderRadius: 4, border: active ? "none" : "1.5px solid #cbd5e1", background: active ? "#2563eb" : "#fff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {active && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                    </span>
+                    <span style={{ width: 8, height: 8, borderRadius: 4, background: c.dot, flexShrink: 0 }} />
+                    <span>{t}</span>
+                  </button>;
+                })}
+                {typeFilter.size > 0 && <>
+                  <div style={{ height: 1, background: "#e2e8f0", margin: "4px 0" }} />
+                  <button onClick={() => { setTypeFilter(new Set()); setActiveViewId(null); setViewModified(false); }} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: 12, fontWeight: 500, color: "#64748b" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    Clear filter
+                  </button>
+                </>}
+              </div>}
+            </div>
+            <div ref={viewsRef} style={{ position: "relative" }}>
+              <button onClick={() => { setViewsOpen(v => !v); setSaveViewModal(false); }} onMouseEnter={() => setViewsBtnHov(true)} onMouseLeave={() => setViewsBtnHov(false)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: `1px solid ${activeViewId ? "#2563eb" : "#e2e8f0"}`, background: activeViewId ? "#eff6ff" : "#fff", fontSize: 12, fontWeight: 600, color: activeViewId ? "#2563eb" : "#475569", cursor: "pointer", boxShadow: "0 1px 6px rgba(0,0,0,0.06)", backdropFilter: "blur(8px)" }}>
+                {activeViewId && viewModified && <span style={{ width: 6, height: 6, borderRadius: 3, background: "#2563eb", flexShrink: 0 }} />}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                Views
+                {activeViewId && viewModified && viewsBtnHov && <span onClick={e => { e.stopPropagation(); handleUpdateView(); }} title="Save changes to view" style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, borderRadius: 4, background: "#dbeafe", cursor: "pointer", flexShrink: 0, marginLeft: -2 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                </span>}
+              </button>
+              {viewsOpen && <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 4px 16px rgba(0,0,0,0.10)", padding: "8px 0", minWidth: 220, zIndex: 20 }}>
+                {!saveViewModal ? <>
+                  <button onClick={() => { setSaveViewModal(true); setSaveViewName(""); }} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "8px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: 12.5, fontWeight: 600, color: "#2563eb", textAlign: "left" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Save current view
+                  </button>
+                  {savedViews.length > 0 && <>
+                    <div style={{ height: 1, background: "#e2e8f0", margin: "4px 0" }} />
+                    <div style={{ padding: "4px 14px 6px", fontSize: 11, fontWeight: 600, color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.05em" }}>My Views</div>
+                    {savedViews.map(v => <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "0 6px 0 0" }}>
+                      <button onClick={() => { handleLoadView(v); setViewsOpen(false); }} style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "7px 8px 7px 14px", border: "none", background: activeViewId === v.id ? "#eff6ff" : "transparent", cursor: "pointer", fontSize: 12.5, fontWeight: 500, color: activeViewId === v.id ? "#2563eb" : "#334155", textAlign: "left", borderRadius: 0 }} onMouseEnter={e => { if (activeViewId !== v.id) e.currentTarget.style.background = "#f1f5f9"; }} onMouseLeave={e => { if (activeViewId !== v.id) e.currentTarget.style.background = "transparent"; }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill={activeViewId === v.id ? "#2563eb" : "none"} stroke={activeViewId === v.id ? "#2563eb" : "#94a3b8"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</span>
+                        {v.typeFilter?.length > 0 && <span style={{ fontSize: 9, fontWeight: 600, color: "#94a3b8", background: "#f1f5f9", borderRadius: 4, padding: "1px 5px", flexShrink: 0 }}>F</span>}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteView(v.id); }} style={{ width: 24, height: 24, border: "none", background: "transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#cbd5e1", borderRadius: 4, flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.color = "#ef4444"; e.currentTarget.style.background = "#fef2f2"; }} onMouseLeave={e => { e.currentTarget.style.color = "#cbd5e1"; e.currentTarget.style.background = "transparent"; }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>)}
+                  </>}
+                  {activeViewId && <>
+                    <div style={{ height: 1, background: "#e2e8f0", margin: "4px 0" }} />
+                    <button onClick={() => { setActiveViewId(null); setViewModified(false); setDragOffsets({}); setPillOffsets({}); setLineOffsets({}); setDotOverrides({}); setTypeFilter(new Set()); setFocusId(null); setRevealed(new Set()); setExpanded(new Set(["launch-vehicle"])); rawDragAccum.current = {}; setCenterTrigger(c => c + 1); setViewsOpen(false); }} style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 14px", border: "none", background: "transparent", cursor: "pointer", fontSize: 12, fontWeight: 500, color: "#64748b" }} onMouseEnter={e => e.currentTarget.style.background = "#f1f5f9"} onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                      Deselect view
+                    </button>
+                  </>}
+                </> : <div style={{ padding: "8px 14px" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#334155", marginBottom: 8 }}>Save current view</div>
+                  <input autoFocus value={saveViewName} onChange={e => setSaveViewName(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && saveViewName.trim()) { handleSaveView(saveViewName.trim()); setSaveViewModal(false); setViewsOpen(false); } if (e.key === "Escape") setSaveViewModal(false); }} placeholder="View name..." style={{ width: "100%", padding: "7px 10px", borderRadius: 6, border: "1px solid #e2e8f0", fontSize: 12.5, outline: "none", boxSizing: "border-box", fontFamily: "inherit" }} onFocus={e => e.currentTarget.style.borderColor = "#2563eb"} onBlur={e => e.currentTarget.style.borderColor = "#e2e8f0"} />
+                  <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                    <button onClick={() => setSaveViewModal(false)} style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, fontWeight: 500, color: "#64748b", cursor: "pointer" }}>Cancel</button>
+                    <button disabled={!saveViewName.trim()} onClick={() => { handleSaveView(saveViewName.trim()); setSaveViewModal(false); setViewsOpen(false); }} style={{ flex: 1, padding: "6px 0", borderRadius: 6, border: "none", background: saveViewName.trim() ? "#2563eb" : "#94a3b8", fontSize: 12, fontWeight: 600, color: "#fff", cursor: saveViewName.trim() ? "pointer" : "default", opacity: saveViewName.trim() ? 1 : 0.6 }}>Save</button>
+                  </div>
+                </div>}
+              </div>}
+            </div>
+            <button onClick={() => { setDragOffsets({}); setPillOffsets({}); setLineOffsets({}); setDotOverrides({}); rawDragAccum.current = {}; setCenterTrigger(c => c + 1); setActiveViewId(null); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: "1px solid #e2e8f0", background: "#fff", fontSize: 12, fontWeight: 600, color: "#475569", cursor: "pointer", boxShadow: "0 1px 6px rgba(0,0,0,0.06)", backdropFilter: "blur(8px)" }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Layout</button>
+          </div>
           <MiniMap blocks={visible} pan={pan} zoom={zoom} vw={viewSize.w} vh={viewSize.h} />
           <div style={{ position: "absolute", bottom: 16, left: 18, zIndex: 10, fontSize: 10, color: "#94a3b8", background: "rgba(255,255,255,0.9)", padding: "3px 9px", borderRadius: 5, border: "1px solid #e8ebef" }}>Drag dots to connect · Drag pills to reposition</div>
           <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} style={{ background: "#f1f5f9", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
@@ -1324,19 +1752,20 @@ export default function SERMTool() {
                 <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={10} fill={`${sys.color}06`} stroke={relIds.includes(sys.id) || isSB ? "#2563eb" : sys.color} strokeWidth={relIds.includes(sys.id) || isSB ? 2.5 : 1.5} strokeDasharray="7 3" />
                 <rect x={sys.x} y={sys.y} width={sys.w} height={HEADER_H} rx={10} fill={`${sys.color}0d`} /><rect x={sys.x} y={sys.y + HEADER_H - 8} width={sys.w} height={8} fill={`${sys.color}0d`} />
                 <CubeIcon x={sys.x + 10} y={sys.y + 10} size={18} color={sys.color} />
-                <text x={sys.x + 34} y={sys.y + 26} fontSize={13} fontFamily="'DM Sans',sans-serif" fontWeight={700} fill="#1e293b">{sys.name}</text>
+                <text x={sys.x + 34} y={sys.y + 26} fontSize={13} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={700} fill="#1e293b">{sys.name}</text>
                 <text x={sys.x + sys.w - 12} y={sys.y + 26} textAnchor="end" fontSize={10} fill="#94a3b8">{sys.reqs}</text>
                 {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
                   e.stopPropagation(); e.preventDefault();
                   const ifaceObj = ifaces.find(iface => iface.id === d.ifaceId);
                   if (ifaceObj) setDraggingDot({ ifaceId: d.ifaceId, role: ifaceObj.source === sys.id ? "source" : "target", blockId: sys.id, currentDotId: d.id, snapDotId: d.id });
                 }} />)}
-                {isH && allD.map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
+                {isH && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
               </g>; })}
 
               {ifaces.map(iface => {
                 const da = animDots[iface.id]; const pill = pills[iface.id];
                 if (!da || !pill) return null;
+                if (typeFilter.size > 0 && !typeFilter.has(iface.interfaceType)) return null;
                 const pcx = pill.x + pill.w / 2, pcy = pill.y + pill.h / 2;
                 const isAct = selId === iface.id || hovId === iface.id || blockRelIfaceIds.has(iface.id);
                 const sDotId = da.s.id, tDotId = da.t.id;
@@ -1345,12 +1774,12 @@ export default function SERMTool() {
                 // Pill→Target path: pill is flexible start, target dot determines entry direction
                 const tPath = smartElbowPath(pcx, pcy, da.t.cx, da.t.cy, null, tDotId, undefined, leafRects);
                 return <g key={iface.id}>
-                  <path d={sPath} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
-                  <path d={tPath} fill="none" stroke="transparent" strokeWidth={14} onClick={() => { setSelId(selId === iface.id ? null : iface.id); setSelBlockId(null); }} style={{ cursor: "pointer" }} />
+                  <path d={sPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { wbOpenTab("interface", iface.id); setSelBlockId(null); }} style={{ cursor: "grab" }} />
+                  <path d={tPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { wbOpenTab("interface", iface.id); setSelBlockId(null); }} style={{ cursor: "grab" }} />
                   <path d={sPath} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
                   <path d={tPath} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
-                  <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { const nid = selId === iface.id ? null : iface.id; setSelId(nid); setSelBlockId(null); setDetailId(nid); setDetailEditing(false); }} />
-                  <text x={pcx} y={pcy + 3.5} textAnchor="middle" fontSize={10} fontFamily="'DM Sans',sans-serif" fontWeight={isAct ? 600 : 500} fill={isAct ? "#fff" : "#64748b"} style={{ pointerEvents: "none" }}>{iface.name}</text>
+                  <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { wbOpenTab("interface", iface.id); setSelBlockId(null); }} />
+                  <text x={pcx} y={pcy + 3.5} textAnchor="middle" fontSize={10} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={isAct ? 600 : 500} fill={isAct ? "#fff" : "#64748b"} style={{ pointerEvents: "none" }}>{iface.name}</text>
                 </g>;
               })}
 
@@ -1361,31 +1790,67 @@ export default function SERMTool() {
                   if (!extByBlock[inId]) extByBlock[inId] = [];
                   extByBlock[inId].push(iface);
                 }
+                const fb = focusId && visible[focusId];
+                // Closest exit side per internal block
+                const blockSide = {};
+                for (const [inId, group] of Object.entries(extByBlock)) {
+                  const b = visible[inId];
+                  if (!b || !fb) { blockSide[inId] = "left"; continue; }
+                  const dL = b.x - fb.x;
+                  const dR = (fb.x + fb.w) - (b.x + b.w);
+                  const dT = b.y - fb.y;
+                  const dB = (fb.y + fb.h) - (b.y + b.h);
+                  const m = Math.min(dL, dR, dT, dB);
+                  blockSide[inId] = m === dR ? "right" : m === dT ? "top" : m === dB ? "bottom" : "left";
+                }
                 return externalIfaces.map(iface => {
+                  if (typeFilter.size > 0 && !typeFilter.has(iface.interfaceType)) return null;
                   const inId = focusIds?.has(iface.source) ? iface.source : iface.target;
                   const outId = inId === iface.source ? iface.target : iface.source;
                   const inB = visible[inId]; if (!inB) return null;
                   const group = extByBlock[inId] || [];
                   const idx = group.indexOf(iface);
-                  const gap = 34;
-                  const startY = inB.y + inB.h * 0.3;
-                  const sy = startY + idx * gap;
-                  const sx = inB.x;
+                  const side = blockSide[inId] || "left";
                   const extSys = positioned[outId];
                   const extName = extSys?.name || outId;
                   const truncName = extName.length > 14 ? extName.slice(0, 13) + "\u2026" : extName;
                   const boxH = 26, boxW = Math.max(truncName.length * 6.5 + 32, 64);
-                  const lineEndX = sx - 20;
-                  const boxX = lineEndX - boxW, boxY = sy - boxH / 2;
                   const extColor = extSys?.color || "#94a3b8";
-                  const isH = hovStub === iface.id; const isR = revealed.has(outId);
+                  const outerGap = 20;
+                  let sx, sy, ex, ey, boxX, boxY;
+                  if (side === "left") {
+                    sy = inB.y + inB.h * 0.3 + idx * 34;
+                    sx = inB.x;
+                    ex = (fb ? fb.x : sx) - outerGap;
+                    ey = sy;
+                    boxX = ex - boxW; boxY = sy - boxH / 2;
+                  } else if (side === "right") {
+                    sy = inB.y + inB.h * 0.3 + idx * 34;
+                    sx = inB.x + inB.w;
+                    ex = (fb ? fb.x + fb.w : sx) + outerGap;
+                    ey = sy;
+                    boxX = ex; boxY = sy - boxH / 2;
+                  } else if (side === "top") {
+                    sx = inB.x + inB.w * 0.3 + idx * (boxW + 10);
+                    sy = inB.y;
+                    ex = sx;
+                    ey = (fb ? fb.y : sy) - outerGap;
+                    boxX = sx - boxW / 2; boxY = ey - boxH;
+                  } else {
+                    sx = inB.x + inB.w * 0.3 + idx * (boxW + 10);
+                    sy = inB.y + inB.h;
+                    ex = sx;
+                    ey = (fb ? fb.y + fb.h : sy) + outerGap;
+                    boxX = sx - boxW / 2; boxY = ey;
+                  }
+                  const isHv = hovStub === iface.id; const isR = revealed.has(outId);
                   const toggleReveal = e => { e.stopPropagation(); setRevealed(p => { const n = new Set(p); if (n.has(outId)) n.delete(outId); else n.add(outId); return n; }); };
                   return <g key={"ext" + iface.id} onMouseEnter={() => setHovStub(iface.id)} onMouseLeave={() => setHovStub(null)}>
-                    <path d={`M${sx},${sy} L${lineEndX},${sy}`} fill="none" stroke="#b0b8c4" strokeWidth={1.5} strokeDasharray="4 3" />
+                    <path d={`M${sx},${sy} L${ex},${ey}`} fill="none" stroke="#b0b8c4" strokeWidth={1.5} strokeDasharray="4 3" />
                     <circle cx={sx} cy={sy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
-                    <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={6} fill={isR ? "#eff6ff" : isH ? "#f8fafc" : "#fff"} stroke={isR ? "#2563eb" : isH ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR ? 1.5 : 1} style={{ cursor: "pointer", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.06))" }} onClick={toggleReveal} />
+                    <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={6} fill={isR ? "#eff6ff" : isHv ? "#f8fafc" : "#fff"} stroke={isR ? "#2563eb" : isHv ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR ? 1.5 : 1} style={{ cursor: "pointer", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.06))" }} onClick={toggleReveal} />
                     <CubeIcon x={boxX + 6} y={boxY + (boxH - 13) / 2} size={13} color={extColor} />
-                    <text x={boxX + 23} y={sy + 3.5} fontSize={10} fontFamily="'DM Sans',sans-serif" fontWeight={500} fill={isR ? "#2563eb" : "#475569"} style={{ pointerEvents: "none" }}>{truncName}</text>
+                    <text x={boxX + 23} y={boxY + boxH / 2 + 3.5} fontSize={10} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={500} fill={isR ? "#2563eb" : "#475569"} style={{ pointerEvents: "none" }}>{truncName}</text>
                   </g>;
                 });
               })()}
@@ -1398,7 +1863,7 @@ export default function SERMTool() {
                 return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
                   <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill="#fff" stroke={isR || isSB ? "#2563eb" : isH ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR || isSB ? 2.5 : 1} filter="url(#bs)" />
                   <CubeIcon x={sys.x + 10} y={sys.y + (sys.h - 17) / 2} size={17} color={sys.color} />
-                  <text x={sys.x + 32} y={sys.y + sys.h / 2 + 4.5} fontSize={12.5} fontFamily="'DM Sans',sans-serif" fontWeight={600} fill="#1e293b">{sys.name.length > 17 ? sys.name.slice(0, 17) + "..." : sys.name}</text>
+                  <text x={sys.x + 32} y={sys.y + sys.h / 2 + 4.5} fontSize={12.5} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={600} fill="#1e293b">{sys.name.length > 17 ? sys.name.slice(0, 17) + "..." : sys.name}</text>
                   {isC && <text x={sys.x + sys.w - 32} y={sys.y + sys.h / 2 + 4} fontSize={11} fill="#f59e0b" fontWeight={700}>▸</text>}
                   <rect x={sys.x + sys.w - 28} y={sys.y + (sys.h - 19) / 2} width={20} height={19} rx={9.5} fill={sys.reqs > 0 ? "#eff6ff" : "#f8fafc"} stroke={sys.reqs > 0 ? "#bfdbfe" : "#e8ebef"} strokeWidth={0.8} />
                   <text x={sys.x + sys.w - 18} y={sys.y + sys.h / 2 + 4} textAnchor="middle" fontSize={10} fontWeight={600} fill={sys.reqs > 0 ? "#2563eb" : "#b0b8c4"}>{sys.reqs}</text>
@@ -1407,7 +1872,7 @@ export default function SERMTool() {
                     const ifaceObj = ifaces.find(iface => iface.id === d.ifaceId);
                     if (ifaceObj) setDraggingDot({ ifaceId: d.ifaceId, role: ifaceObj.source === sys.id ? "source" : "target", blockId: sys.id, currentDotId: d.id, snapDotId: d.id });
                   }} />)}
-                  {isH && allD.map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
+                  {isH && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
                 </g>;
               })}
               {connecting && <path d={elbowPath(connecting.startX, connecting.startY, connecting.currentX, connecting.currentY)} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 3" />}
@@ -1422,8 +1887,13 @@ export default function SERMTool() {
               })()}
             </g>
           </svg>
+          </div>
         </div>
-        {detailId && (() => { const iface = ifaces.find(i => i.id === detailId); if (!iface) return null; return <DetailPanel iface={iface} allSystems={positioned} allRequirements={allRequirements} onClose={handleDetailClose} />; })()}
+        {!chatCollapsed && <ResizeHandle onMouseDown={e => startResize("chat", chatWidth, e)} />}
+        {!chatCollapsed && <AIChatPanel onCollapse={() => setChatCollapsed(true)} width={chatWidth} />}
+        {chatCollapsed && <button onClick={() => setChatCollapsed(false)} title="Expand AI chat" style={{ position: "absolute", top: 60, right: 8, zIndex: 20, width: 28, height: 28, borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }} onMouseEnter={e => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.color = "#475569"; }} onMouseLeave={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#94a3b8"; }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="11 7 6 12 11 17"/><line x1="18" y1="6" x2="18" y2="18"/></svg>
+        </button>}
       </div>
       {modal && <InterfaceModal mode={modal.mode} sourceId={modal.sourceId} targetId={modal.targetId} allSystems={positioned} allRequirements={allRequirements} onClose={() => setModal(null)} onCreate={handleCreate} onAddReq={r => setAllRequirements(p => [...p, r])} />}
     </div>
