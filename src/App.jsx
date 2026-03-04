@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 
 const COLORS = { orange: "#f97316", blue: "#3b82f6", green: "#22c55e", yellow: "#eab308", gray: "#94a3b8" };
 const GRID = 40;
-const BW = 200, BH = 80, PAD = 40, HEADER_H = 40, PILL_H = 24, PILL_MIN_W = 80;
+const BW = 260, BH = 95, PAD = 40, HEADER_H = 40, PILL_H = 24, PILL_MIN_W = 80;
 const INTER_BLOCK = 280, ROW_GAP = 120;
 function snapToGrid(v) { return Math.round(v / GRID) * GRID; }
 
@@ -83,7 +83,7 @@ function layoutNode(node, ox, oy, expSet, out, ifaceList) {
   const hasKids = !!(node.children?.length);
   const isExp = hasKids && expSet.has(node.id);
   if (!hasKids || !isExp) {
-    const w = snapToGrid(BW + (hasKids ? 22 : 0));
+    const w = snapToGrid(BW);
     out[node.id] = { ...node, x: snapToGrid(ox), y: snapToGrid(oy), w, h: BH, expanded: false, hasChildren: hasKids };
     return { w, h: BH };
   }
@@ -182,12 +182,13 @@ function computeLayout(expSet, ifaceList) {
 
 function getDots(b) {
   const { x, y, w, h } = b;
+  const tx = [0.08, 0.248, 0.416, 0.584, 0.752, 0.92];
+  const sy = [0.25, 0.5, 0.75];
   return [
-    { id: "tc", cx: x + w / 2, cy: y }, { id: "tl", cx: x + w * 0.25, cy: y }, { id: "tr", cx: x + w * 0.75, cy: y },
-    { id: "ml", cx: x, cy: y + h / 2 }, { id: "mr", cx: x + w, cy: y + h / 2 },
-    { id: "bc", cx: x + w / 2, cy: y + h }, { id: "bl", cx: x + w * 0.25, cy: y + h }, { id: "br", cx: x + w * 0.75, cy: y + h },
-    { id: "l3", cx: x, cy: y + h * 0.3 }, { id: "r3", cx: x + w, cy: y + h * 0.3 },
-    { id: "l7", cx: x, cy: y + h * 0.7 }, { id: "r7", cx: x + w, cy: y + h * 0.7 },
+    ...tx.map((f, i) => ({ id: `t${i + 1}`, cx: x + w * f, cy: y })),
+    ...tx.map((f, i) => ({ id: `b${i + 1}`, cx: x + w * f, cy: y + h })),
+    ...sy.map((f, i) => ({ id: `l${i + 1}`, cx: x, cy: y + h * f })),
+    ...sy.map((f, i) => ({ id: `r${i + 1}`, cx: x + w, cy: y + h * f })),
   ];
 }
 
@@ -455,11 +456,9 @@ function elbowSegments(sx, sy, tx, ty, midX) {
 }
 
 const CubeIcon = ({ x, y, size, color }) => {
-  const s = size, cx = x + s / 2, cy = y + s / 2, h = s * 0.45, w = s * 0.42;
-  return <g>
-    <polygon points={`${cx},${cy - h} ${cx + w},${cy - h * .35} ${cx},${cy + h * .15} ${cx - w},${cy - h * .35}`} fill={color + "30"} stroke={color} strokeWidth={1} strokeLinejoin="round" />
-    <polygon points={`${cx},${cy + h * .15} ${cx + w},${cy - h * .35} ${cx + w},${cy + h * .35} ${cx},${cy + h}`} fill={color + "18"} stroke={color} strokeWidth={1} strokeLinejoin="round" />
-    <polygon points={`${cx},${cy + h * .15} ${cx - w},${cy - h * .35} ${cx - w},${cy + h * .35} ${cx},${cy + h}`} fill={color + "22"} stroke={color} strokeWidth={1} strokeLinejoin="round" />
+  const scale = size / 24;
+  return <g transform={`translate(${x},${y}) scale(${scale})`}>
+    <path d="M12 17.7604L16.9883 14.8804V9.12036L12 6.24036L7.01172 9.12036V14.8804L12 17.7604ZM12 17.7604V12.3604M12 12.3604L7.32003 9.48036M12 12.3604L16.68 9.48036" fill="none" stroke={color} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" />
   </g>;
 };
 
@@ -555,10 +554,9 @@ function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, 
         {hc ? <span style={{ fontSize: 8, color: "#94a3b8", width: 10, textAlign: "center", display: "inline-block", transition: "transform 0.15s", transform: isO ? "rotate(90deg)" : "none" }}>▶</span> : <span style={{ width: 10 }} />}
         <svg width="13" height="13" viewBox="0 0 16 16"><polygon points="8,2 13,5.5 8,8 3,5.5" fill={COLORS.orange + "40"} stroke={COLORS.orange} strokeWidth="1" /><polygon points="8,8 13,5.5 13,10.5 8,14" fill={COLORS.orange + "25"} stroke={COLORS.orange} strokeWidth="1" /><polygon points="8,8 3,5.5 3,10.5 8,14" fill={COLORS.orange + "30"} stroke={COLORS.orange} strokeWidth="1" /></svg>
         <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{node.name}</span>
-        {ni.length > 0 && <span style={{ fontSize: 10, color: "#94a3b8", background: "#f1f5f9", padding: "0 4px", borderRadius: 3 }}>{ni.length}</span>}
         {isHov && <>
-          <span onClick={e => { e.stopPropagation(); onQuickAdd(node.id); }} title="Add interface from this system" style={{ fontSize: 14, color: "#2563eb", cursor: "pointer", lineHeight: 1, fontWeight: 700, width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "#eff6ff" }}>+</span>
-          <span onClick={e => { e.stopPropagation(); focusSys(node.id); }} title="Focus" style={{ fontSize: 12, color: "#94a3b8", cursor: "pointer" }}>⊚</span>
+          <span onClick={e => { e.stopPropagation(); onQuickAdd(node.id); }} title="Add interface from this system" style={{ fontSize: 16, color: "#2563eb", cursor: "pointer", lineHeight: 1, fontWeight: 700, width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "#eff6ff" }}>+</span>
+          <span onClick={e => { e.stopPropagation(); focusSys(node.id); }} title="Focus" style={{ fontSize: 15, color: "#94a3b8", cursor: "pointer", width: 22, height: 22, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 4, background: "#f1f5f9" }}>⊚</span>
         </>}
       </div>
       {isO && <div>
@@ -572,9 +570,8 @@ function SidebarTree({ nodes, ifaces, selId, hovId, onSel, onHov, sbExp, togSb, 
               onClick={e => { e.stopPropagation(); onSel(iface.id); if (hasReqs) togSbIface(ifaceKey); }} onMouseEnter={() => onHov(iface.id)} onMouseLeave={() => onHov(null)}
               style={{ display: "flex", alignItems: "center", gap: 5, padding: `4px 8px 4px ${20 + d * 14}px`, cursor: "pointer", borderRadius: 5, fontSize: 11.5, marginBottom: 1, background: selId === iface.id ? "#eff6ff" : hovId === iface.id ? "#f8fafc" : "transparent", border: selId === iface.id ? "1px solid #bfdbfe" : "1px solid transparent" }}>
               {hasReqs ? <span style={{ fontSize: 7, color: "#94a3b8", width: 8, textAlign: "center", display: "inline-block", transition: "transform 0.15s", transform: isIfaceOpen ? "rotate(90deg)" : "none" }}>▶</span> : <span style={{ width: 8 }} />}
-              <span style={{ color: selId === iface.id ? "#2563eb" : "#b0b8c4", fontSize: 12 }}>∞</span>
-              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: selId === iface.id ? 600 : 400, color: selId === iface.id ? "#2563eb" : "#64748b" }}>{iface.name}</span>
-              <span style={{ fontSize: 10, color: "#b0b8c4", background: "#f1f5f9", padding: "0 3px", borderRadius: 2 }}>{iface.id}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/><line x1="9" y1="12" x2="15" y2="12"/></svg>
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: selId === iface.id ? 600 : 400, color: selId === iface.id ? "#2563eb" : "#1e293b" }}>{iface.name}</span>
             </div>
             {isIfaceOpen && hasReqs && <div>
               {reqs.map(rq => {
@@ -979,7 +976,7 @@ function Workbench({ tabs, activeTab, onSetActive, onCloseTab, onCloseAll, onOpe
   // --- Main render ---
   return (
     <div onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}
-      style={{ width: width || 380, background: "#fff", borderRight: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", overflow: "hidden", position: "relative", boxShadow: tabDragOver ? "inset 0 0 0 2px #3b82f6" : "none", transition: "box-shadow 0.2s" }}>
+      style={{ width: width || 380, background: "#fff", borderLeft: "1px solid #e2e8f0", display: "flex", flexDirection: "column", flexShrink: 0, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", overflow: "hidden", position: "relative", boxShadow: tabDragOver ? "inset 0 0 0 2px #3b82f6" : "none", transition: "box-shadow 0.2s" }}>
       {tabDragOver && <div style={{ position: "absolute", inset: 0, background: "rgba(59,130,246,0.05)", zIndex: 5, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
         <div style={{ background: "#eff6ff", border: "2px dashed #3b82f6", borderRadius: 10, padding: "14px 22px", fontSize: 12.5, fontWeight: 600, color: "#2563eb" }}>Drop to add</div>
       </div>}
@@ -1122,6 +1119,7 @@ export default function SERMTool() {
   const [selId, setSelId] = useState(null);
   const [hovId, setHovId] = useState(null);
   const [hovBlock, setHovBlock] = useState(null);
+  const [hovCursor, setHovCursor] = useState(null);
   const [selBlockId, setSelBlockId] = useState(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(0.6);
@@ -1312,6 +1310,7 @@ export default function SERMTool() {
   const DBLCLICK_MS = 400;
   const blockDownPos = useRef({ x: 0, y: 0 });
   const blockClickRef = useRef({ id: null, time: 0 });
+  const pillDownPos = useRef({ x: 0, y: 0 });
 
   const handleBlockDown = useCallback((e, id) => {
     e.stopPropagation();
@@ -1340,7 +1339,8 @@ export default function SERMTool() {
   }, []);
   const handleCanvasDown = useCallback((e) => { if (!dragging && !connecting && !draggingPill && !draggingLine) { setPanSt(true); panRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; setSelId(null); setSelBlockId(null); } }, [pan, dragging, connecting, draggingPill, draggingLine]);
   const handleDotDown = useCallback((e, sysId, cx, cy) => { e.stopPropagation(); e.preventDefault(); const r = svgRef.current.getBoundingClientRect(); setConnecting({ sourceId: sysId, startX: cx, startY: cy, currentX: (e.clientX - r.left - pan.x) / zoom, currentY: (e.clientY - r.top - pan.y) / zoom }); }, [pan, zoom]);
-  const handlePillDown = useCallback((e, ifId) => { e.stopPropagation(); setDraggingPill(ifId); setPillDragStart({ x: e.clientX, y: e.clientY, off: pillOffsets[ifId] || { dx: 0, dy: 0 } }); }, [pillOffsets]);
+  const handlePillDown = useCallback((e, ifId) => { e.stopPropagation(); setDraggingPill(ifId); setPillDragStart({ x: e.clientX, y: e.clientY, off: pillOffsets[ifId] || { dx: 0, dy: 0 } }); pillDownPos.current = { x: e.clientX, y: e.clientY }; }, [pillOffsets]);
+  const handlePillClick = useCallback((e, ifId) => { const dist = Math.hypot(e.clientX - pillDownPos.current.x, e.clientY - pillDownPos.current.y); if (dist > DRAG_THRESHOLD) return; wbOpenTab("interface", ifId); setSelBlockId(null); }, []);
   // Handle dragging the vertical middle segment of a connector line
   const handleLineDown = useCallback((e, ifId, currentMidX) => {
     e.stopPropagation();
@@ -1486,6 +1486,16 @@ export default function SERMTool() {
     setWbTabs(prev => {
       const existing = prev.findIndex(t => t.type === type && t.id === id);
       if (existing >= 0) { setWbActiveTab(existing); return prev; }
+      if (type === "interface") {
+        // Replace existing interface tab instead of adding a new one
+        const ifaceIdx = prev.findIndex(t => t.type === "interface");
+        if (ifaceIdx >= 0) {
+          const next = [...prev];
+          next[ifaceIdx] = { type, id, parentIfaceId };
+          setWbActiveTab(ifaceIdx);
+          return next;
+        }
+      }
       const next = [...prev, { type, id, parentIfaceId }];
       setWbActiveTab(next.length - 1);
       return next;
@@ -1623,25 +1633,6 @@ export default function SERMTool() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 7 18 12 13 17"/><line x1="6" y1="6" x2="6" y2="18"/></svg>
         </button>}
         {!sidebarCollapsed && <ResizeHandle onMouseDown={e => startResize("sidebar", sidebarWidth, e)} />}
-        {/* Workbench Panel */}
-        {workbenchOpen && <Workbench
-          tabs={wbTabs} activeTab={wbActiveTab} onSetActive={(i) => { setWbActiveTab(i); const t = wbTabs[i]; if (t?.type === "interface") setSelId(t.id); else setSelId(null); }} onCloseTab={wbCloseTab} onCloseAll={wbCloseAll}
-          onOpenReqTab={(reqId, parentIfaceId) => wbOpenTab("requirement", reqId, parentIfaceId)}
-          ifaces={ifaces} allSystems={positioned} allRequirements={allRequirements}
-          onDrop={(data) => {
-            const current = wbTabs[wbActiveTab];
-            if (current?.type === "interface" && data.type === "requirement") {
-              setIfaces(prev => prev.map(i => {
-                if (i.id !== current.id) return i;
-                if (i.requirements.some(r => r.id === data.id)) return i;
-                return { ...i, requirements: [...i.requirements, { id: data.id, tests: [] }], dateLastUpdated: new Date().toISOString().split("T")[0] };
-              }));
-            }
-          }}
-          tabDragOver={tabDragOver} setTabDragOver={setTabDragOver}
-          width={workbenchWidth}
-        />}
-        {workbenchOpen && <ResizeHandle onMouseDown={e => startResize("workbench", workbenchWidth, e)} />}
         {/* Center area: toggle + canvas/table */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
           <div style={{ position: "absolute", top: 14, left: 18, zIndex: 10, display: "flex", alignItems: "center", gap: 8, background: "rgba(241,245,249,0.92)", padding: "3px", borderRadius: 7, backdropFilter: "blur(8px)", border: "1px solid #e2e8f0" }}>
@@ -1665,6 +1656,13 @@ export default function SERMTool() {
             <button onClick={() => { const r = svgRef.current.getBoundingClientRect(); const cx = r.width / 2, cy = r.height / 2; const nz = Math.max(0.15, zoom - 0.15); const ratio = nz / zoom; setPan({ x: cx - (cx - pan.x) * ratio, y: cy - (cy - pan.y) * ratio }); setZoom(nz); }} style={{ width: 32, height: 32, border: "none", background: "none", cursor: "pointer", fontSize: 15, color: "#475569" }}>−</button>
           </div>
           <div style={{ position: "absolute", top: 14, right: 18, zIndex: 10, display: "flex", alignItems: "center", gap: 6 }}>
+            {typeFilter.size > 0 && [...typeFilter].map(t => {
+              const dotColor = { Signal: "#ec4899", Mechanical: "#22c55e", Electrical: "#f59e0b" }[t];
+              return <span key={t} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 20, background: "#fff", border: "1px solid #e2e8f0", fontSize: 11, fontWeight: 600, color: "#475569", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor, flexShrink: 0 }} />
+                {t}
+              </span>;
+            })}
             <div ref={filterRef} style={{ position: "relative" }}>
               <button onClick={() => setFilterOpen(f => !f)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 7, border: `1px solid ${typeFilter.size > 0 ? "#2563eb" : "#e2e8f0"}`, background: typeFilter.size > 0 ? "#eff6ff" : "#fff", fontSize: 12, fontWeight: 600, color: typeFilter.size > 0 ? "#2563eb" : "#475569", cursor: "pointer", boxShadow: "0 1px 6px rgba(0,0,0,0.06)", backdropFilter: "blur(8px)" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
@@ -1748,18 +1746,17 @@ export default function SERMTool() {
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-              {containers.map(sys => { const isSB = selBlockId === sys.id; const isH = hovBlock === sys.id && !connecting; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
-                <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={10} fill={`${sys.color}06`} stroke={relIds.includes(sys.id) || isSB ? "#2563eb" : sys.color} strokeWidth={relIds.includes(sys.id) || isSB ? 2.5 : 1.5} strokeDasharray="7 3" />
-                <rect x={sys.x} y={sys.y} width={sys.w} height={HEADER_H} rx={10} fill={`${sys.color}0d`} /><rect x={sys.x} y={sys.y + HEADER_H - 8} width={sys.w} height={8} fill={`${sys.color}0d`} />
-                <CubeIcon x={sys.x + 10} y={sys.y + 10} size={18} color={sys.color} />
-                <text x={sys.x + 34} y={sys.y + 26} fontSize={13} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={700} fill="#1e293b">{sys.name}</text>
-                <text x={sys.x + sys.w - 12} y={sys.y + 26} textAnchor="end" fontSize={10} fill="#94a3b8">{sys.reqs}</text>
-                {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
+              {containers.map(sys => { const isSB = selBlockId === sys.id; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => { setHovBlock(null); setHovCursor(null); }} onMouseMove={e => { if (!connecting && !draggingDot) { const r = svgRef.current.getBoundingClientRect(); setHovCursor({ x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom }); } }} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.2 : 1, transition: "opacity 0.15s" }}>
+                <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill="rgba(249,115,22,0.05)" stroke={relIds.includes(sys.id) || isSB ? "#2563eb" : "rgba(249,115,22,0.35)"} strokeWidth={relIds.includes(sys.id) || isSB ? 2.5 : 1} />
+                <CubeIcon x={sys.x + 10} y={sys.y + 10} size={24} color="#f97316" />
+                <text x={sys.x + 38} y={sys.y + 26} fontSize={16} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={500} fill="#000">{sys.name}</text>
+                {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={6} fill="#fff" stroke="#d5d5d5" strokeWidth={1} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
                   e.stopPropagation(); e.preventDefault();
                   const ifaceObj = ifaces.find(iface => iface.id === d.ifaceId);
                   if (ifaceObj) setDraggingDot({ ifaceId: d.ifaceId, role: ifaceObj.source === sys.id ? "source" : "target", blockId: sys.id, currentDotId: d.id, snapDotId: d.id });
                 }} />)}
-                {isH && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
+                {(connecting || draggingDot) && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"ad" + i} cx={d.cx} cy={d.cy} r={6} fill="#fff" stroke="#d5d5d5" strokeWidth={1} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
+                {!connecting && !draggingDot && hovBlock === sys.id && hovCursor && (() => { const avail = allD.filter(d => !cIds.has(d.id)); if (!avail.length) return null; let best = avail[0], bestD = Infinity; for (const d of avail) { const dist = Math.hypot(d.cx - hovCursor.x, d.cy - hovCursor.y); if (dist < bestD) { bestD = dist; best = d; } } return <circle key="hd-closest" cx={best.cx} cy={best.cy} r={6} fill="#fff" stroke="#d5d5d5" strokeWidth={1} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, best.cx, best.cy)} />; })()}
               </g>; })}
 
               {ifaces.map(iface => {
@@ -1774,11 +1771,11 @@ export default function SERMTool() {
                 // Pill→Target path: pill is flexible start, target dot determines entry direction
                 const tPath = smartElbowPath(pcx, pcy, da.t.cx, da.t.cy, null, tDotId, undefined, leafRects);
                 return <g key={iface.id}>
-                  <path d={sPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { wbOpenTab("interface", iface.id); setSelBlockId(null); }} style={{ cursor: "grab" }} />
-                  <path d={tPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { wbOpenTab("interface", iface.id); setSelBlockId(null); }} style={{ cursor: "grab" }} />
+                  <path d={sPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={e => handlePillClick(e, iface.id)} style={{ cursor: "grab" }} />
+                  <path d={tPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={e => handlePillClick(e, iface.id)} style={{ cursor: "grab" }} />
                   <path d={sPath} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
                   <path d={tPath} fill="none" stroke={isAct ? "#2563eb" : "#cdd3db"} strokeWidth={isAct ? 3.5 : 2} />
-                  <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={() => { wbOpenTab("interface", iface.id); setSelBlockId(null); }} />
+                  <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={12} fill={isAct ? "#2563eb" : draggingPill === iface.id ? "#e0e7ff" : "#fff"} stroke={isAct ? "#2563eb" : "#dde1e7"} strokeWidth={0.8} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={e => handlePillClick(e, iface.id)} />
                   <text x={pcx} y={pcy + 3.5} textAnchor="middle" fontSize={10} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={isAct ? 600 : 500} fill={isAct ? "#fff" : "#64748b"} style={{ pointerEvents: "none" }}>{iface.name}</text>
                 </g>;
               })}
@@ -1849,7 +1846,7 @@ export default function SERMTool() {
                     <path d={`M${sx},${sy} L${ex},${ey}`} fill="none" stroke="#b0b8c4" strokeWidth={1.5} strokeDasharray="4 3" />
                     <circle cx={sx} cy={sy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} />
                     <rect x={boxX} y={boxY} width={boxW} height={boxH} rx={6} fill={isR ? "#eff6ff" : isHv ? "#f8fafc" : "#fff"} stroke={isR ? "#2563eb" : isHv ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR ? 1.5 : 1} style={{ cursor: "pointer", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.06))" }} onClick={toggleReveal} />
-                    <CubeIcon x={boxX + 6} y={boxY + (boxH - 13) / 2} size={13} color={extColor} />
+                    <CubeIcon x={boxX + 6} y={boxY + (boxH - 13) / 2} size={13} color="#f97316" />
                     <text x={boxX + 23} y={boxY + boxH / 2 + 3.5} fontSize={10} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={500} fill={isR ? "#2563eb" : "#475569"} style={{ pointerEvents: "none" }}>{truncName}</text>
                   </g>;
                 });
@@ -1860,19 +1857,18 @@ export default function SERMTool() {
                 const isR = relIds.includes(sys.id); const isSB = selBlockId === sys.id; const isC = !sys.expanded && sys.hasChildren;
                 const isH = hovBlock === sys.id && !connecting;
                 const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id));
-                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => setHovBlock(null)} style={{ cursor: "grab", opacity: dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
-                  <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill="#fff" stroke={isR || isSB ? "#2563eb" : isH ? "#93b4f0" : "#e2e8f0"} strokeWidth={isR || isSB ? 2.5 : 1} filter="url(#bs)" />
-                  <CubeIcon x={sys.x + 10} y={sys.y + (sys.h - 17) / 2} size={17} color={sys.color} />
-                  <text x={sys.x + 32} y={sys.y + sys.h / 2 + 4.5} fontSize={12.5} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={600} fill="#1e293b">{sys.name.length > 17 ? sys.name.slice(0, 17) + "..." : sys.name}</text>
-                  {isC && <text x={sys.x + sys.w - 32} y={sys.y + sys.h / 2 + 4} fontSize={11} fill="#f59e0b" fontWeight={700}>▸</text>}
-                  <rect x={sys.x + sys.w - 28} y={sys.y + (sys.h - 19) / 2} width={20} height={19} rx={9.5} fill={sys.reqs > 0 ? "#eff6ff" : "#f8fafc"} stroke={sys.reqs > 0 ? "#bfdbfe" : "#e8ebef"} strokeWidth={0.8} />
-                  <text x={sys.x + sys.w - 18} y={sys.y + sys.h / 2 + 4} textAnchor="middle" fontSize={10} fontWeight={600} fill={sys.reqs > 0 ? "#2563eb" : "#b0b8c4"}>{sys.reqs}</text>
-                  {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#2563eb" stroke="#fff" strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
+                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => { setHovBlock(null); setHovCursor(null); }} onMouseMove={e => { if (!connecting && !draggingDot) { const r = svgRef.current.getBoundingClientRect(); setHovCursor({ x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom }); } }} style={{ cursor: "grab", opacity: dim ? 0.2 : 1, transition: "opacity 0.15s" }}>
+                  <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill="#fff" stroke={isR || isSB ? "#2563eb" : isH ? "#93b4f0" : "#d5d5d5"} strokeWidth={isR || isSB ? 2.5 : 1} filter="url(#bs)" />
+                  <CubeIcon x={sys.x + 12} y={sys.y + 10} size={24} color="#f97316" />
+                  <text x={sys.x + 40} y={sys.y + 28} fontSize={16} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={500} fill="#000">{sys.name.length > 20 ? sys.name.slice(0, 20) + "..." : sys.name}</text>
+                  {isC && (() => { const cnt = sys.children?.length || 0; const lbl = `${cnt} Sub System${cnt !== 1 ? "s" : ""}`; const bW = lbl.length * 6.2 + 12; const bH = 21; const bx = sys.x + sys.w - bW - 12; const by = sys.y + sys.h - bH - 12; return <><rect x={bx} y={by} width={bW} height={bH} rx={4} fill="#f2f2f2" /><text x={bx + bW / 2} y={by + bH / 2 + 4} textAnchor="middle" fontSize={12} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={400} fill="#8a8a8a">{lbl}</text></>; })()}
+                  {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={6} fill="#fff" stroke="#d5d5d5" strokeWidth={1} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
                     e.stopPropagation(); e.preventDefault();
                     const ifaceObj = ifaces.find(iface => iface.id === d.ifaceId);
                     if (ifaceObj) setDraggingDot({ ifaceId: d.ifaceId, role: ifaceObj.source === sys.id ? "source" : "target", blockId: sys.id, currentDotId: d.id, snapDotId: d.id });
                   }} />)}
-                  {isH && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"hd" + i} cx={d.cx} cy={d.cy} r={3.5} fill="#93b4f0" stroke="#fff" strokeWidth={1.5} opacity={0.5} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
+                  {(connecting || draggingDot) && allD.filter(d => !cIds.has(d.id)).map((d, i) => <circle key={"ad" + i} cx={d.cx} cy={d.cy} r={6} fill="#fff" stroke="#d5d5d5" strokeWidth={1} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, d.cx, d.cy)} />)}
+                  {!connecting && !draggingDot && hovBlock === sys.id && hovCursor && (() => { const avail = allD.filter(d => !cIds.has(d.id)); if (!avail.length) return null; let best = avail[0], bestD = Infinity; for (const d of avail) { const dist = Math.hypot(d.cx - hovCursor.x, d.cy - hovCursor.y); if (dist < bestD) { bestD = dist; best = d; } } return <circle key="hd-closest" cx={best.cx} cy={best.cy} r={6} fill="#fff" stroke="#d5d5d5" strokeWidth={1} style={{ cursor: "crosshair" }} onMouseDown={e => handleDotDown(e, sys.id, best.cx, best.cy)} />; })()}
                 </g>;
               })}
               {connecting && <path d={elbowPath(connecting.startX, connecting.startY, connecting.currentX, connecting.currentY)} fill="none" stroke="#2563eb" strokeWidth={2} strokeDasharray="6 3" />}
@@ -1882,13 +1878,51 @@ export default function SERMTool() {
                 const snapDot = allDots.find(d => d.id === draggingDot.snapDotId);
                 if (!snapDot) return null;
                 return <>
-                  {allDots.map(d => <circle key={"snap" + d.id} cx={d.cx} cy={d.cy} r={4} fill={d.id === draggingDot.snapDotId ? "#2563eb40" : "#e2e8f040"} stroke={d.id === draggingDot.snapDotId ? "#2563eb" : "#cbd5e1"} strokeWidth={d.id === draggingDot.snapDotId ? 2 : 1} />)}
+                  {allDots.map(d => <circle key={"snap" + d.id} cx={d.cx} cy={d.cy} r={6} fill={d.id === draggingDot.snapDotId ? "#fff" : "#fff"} stroke={d.id === draggingDot.snapDotId ? "#2563eb" : "#d5d5d5"} strokeWidth={d.id === draggingDot.snapDotId ? 2 : 1} />)}
                 </>;
               })()}
             </g>
           </svg>
           </div>
         </div>
+        {/* Tab drop zone — always visible strip between canvas and workbench */}
+        {!workbenchOpen && <div
+          onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setTabDragOver(true); }}
+          onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setTabDragOver(false); }}
+          onDrop={e => { e.preventDefault(); setTabDragOver(false); const raw = e.dataTransfer.getData("application/json"); if (!raw) return; try { const data = JSON.parse(raw); if (data.type === "interface") { setWorkbenchOpen(true); setWbTabs(prev => { const existing = prev.findIndex(t => t.type === "interface" && t.id === data.id); if (existing >= 0) { setWbActiveTab(existing); return prev; } const next = [...prev, { type: "interface", id: data.id }]; setWbActiveTab(next.length - 1); return next; }); setSelId(data.id); } } catch {} }}
+          style={{ width: tabDragOver ? 40 : 6, background: tabDragOver ? "#dbeafe" : "transparent", borderRight: tabDragOver ? "2px dashed #3b82f6" : "none", transition: "all 0.15s", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", cursor: "default" }}>
+          {tabDragOver && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>}
+        </div>}
+        {/* Workbench Panel */}
+        {workbenchOpen && <ResizeHandle onMouseDown={e => startResize("workbench", workbenchWidth, e)} />}
+        {workbenchOpen && <Workbench
+          tabs={wbTabs} activeTab={wbActiveTab} onSetActive={(i) => { setWbActiveTab(i); const t = wbTabs[i]; if (t?.type === "interface") setSelId(t.id); else setSelId(null); }} onCloseTab={wbCloseTab} onCloseAll={wbCloseAll}
+          onOpenReqTab={(reqId, parentIfaceId) => wbOpenTab("requirement", reqId, parentIfaceId)}
+          ifaces={ifaces} allSystems={positioned} allRequirements={allRequirements}
+          onDrop={(data) => {
+            if (data.type === "interface") {
+              setWbTabs(prev => {
+                const existing = prev.findIndex(t => t.type === "interface" && t.id === data.id);
+                if (existing >= 0) { setWbActiveTab(existing); return prev; }
+                const next = [...prev, { type: "interface", id: data.id }];
+                setWbActiveTab(next.length - 1);
+                return next;
+              });
+              setSelId(data.id);
+              return;
+            }
+            const current = wbTabs[wbActiveTab];
+            if (current?.type === "interface" && data.type === "requirement") {
+              setIfaces(prev => prev.map(i => {
+                if (i.id !== current.id) return i;
+                if (i.requirements.some(r => r.id === data.id)) return i;
+                return { ...i, requirements: [...i.requirements, { id: data.id, tests: [] }], dateLastUpdated: new Date().toISOString().split("T")[0] };
+              }));
+            }
+          }}
+          tabDragOver={tabDragOver} setTabDragOver={setTabDragOver}
+          width={workbenchWidth}
+        />}
         {!chatCollapsed && <ResizeHandle onMouseDown={e => startResize("chat", chatWidth, e)} />}
         {!chatCollapsed && <AIChatPanel onCollapse={() => setChatCollapsed(true)} width={chatWidth} />}
         {chatCollapsed && <button onClick={() => setChatCollapsed(false)} title="Expand AI chat" style={{ position: "absolute", top: 60, right: 8, zIndex: 20, width: 28, height: 28, borderRadius: 6, border: "1px solid #e2e8f0", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#94a3b8", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }} onMouseEnter={e => { e.currentTarget.style.background = "#f1f5f9"; e.currentTarget.style.color = "#475569"; }} onMouseLeave={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.color = "#94a3b8"; }}>
