@@ -2,8 +2,8 @@ import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 
 // ── Figma Design Tokens ──
 const TOKENS = {
-  bgSidebar: "#f4f4f4",
-  bgHover: "#e4e4e4",
+  bgSidebar: "#F7F7F7",
+  bgHover: "#eeeeee",
   bgSelected: "#EDECF5",
   accent: "#2709DC",
   black: "#151414",
@@ -307,7 +307,7 @@ function BranchTree({ data, hovId, setHovId, selId, setSelId, onMerge, onAddChil
         const isHov = hovId === row.id;
         const isSel = selId === row.id;
         const isEditing = editingId === row.id;
-        const bg = isSel ? TOKENS.bgHover : isHov ? TOKENS.bgHover : "transparent";
+        const bg = isSel ? "#eaeaea" : isHov ? TOKENS.bgHover : "transparent";
         const textX = (row.depth + 1) * B_COL;
         const showActions = !isEditing && (isHov || isSel);
 
@@ -317,6 +317,7 @@ function BranchTree({ data, hovId, setHovId, selId, setSelId, onMerge, onAddChil
               display: "flex", alignItems: "center", height: B_ROW,
               paddingLeft: 4 + textX, paddingRight: 4,
               borderRadius: 8, background: bg, cursor: "pointer", userSelect: "none",
+              outline: isSel ? "1px solid #e4e4e4" : "none", outlineOffset: -1,
             }}
             onMouseEnter={() => setHovId(row.id)}
             onMouseLeave={() => setHovId(null)}
@@ -378,13 +379,14 @@ function IndentLines({ lines }) {
   );
 }
 
-function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSelBlock, focusSys, sbExp, togSb, onQuickAdd, lines = [] }) {
+function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSelBlock, focusSys, sbExp, togSb, onQuickAdd, editingItemId, onRenameItem, lines = [] }) {
   const hasChildren = !!(node.children?.length);
   const nodeIfaces = ifaces.filter(i => i.source === node.id || i.target === node.id);
   const isOpen = sbExp.has(node.id);
   const isHovered = hovId === node.id;
   const isSelected = selId === node.id;
   const canExpand = hasChildren || nodeIfaces.length > 0;
+  const isEditing = editingItemId === node.id;
 
   const allItems = [];
   if (isOpen) {
@@ -409,7 +411,7 @@ function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSe
           cursor: "pointer",
           userSelect: "none",
         }}
-        onClick={() => { if (onSelBlock) onSelBlock(node.id); }}
+        onClick={() => { if (!isEditing && onSelBlock) onSelBlock(node.id); }}
         onMouseEnter={() => setHovId(node.id)}
         onMouseLeave={() => setHovId(null)}
       >
@@ -440,17 +442,24 @@ function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSe
             <PackageIcon size={24} />
           </div>
 
-          {/* Name */}
-          <span style={{
-            flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 400,
-            color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-          }}>
-            {node.name}
-          </span>
+          {/* Name — inline editing or static */}
+          {isEditing ? (
+            <BranchNameInput
+              initialName={node.name}
+              onDone={name => onRenameItem(node.id, name)}
+            />
+          ) : (
+            <span style={{
+              flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 400,
+              color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>
+              {node.name}
+            </span>
+          )}
         </div>
 
         {/* Hover buttons: Focus + Plus */}
-        {isHovered && (
+        {isHovered && !isEditing && (
           <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
             <div onClick={e => { e.stopPropagation(); focusSys(node.id); }} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Focus">
               <FocusIcon size={21.6} />
@@ -468,12 +477,19 @@ function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSe
 
         if (item.type === "iface") {
           const iface = item.data;
+          const isIfSel = selId === iface.id;
+          const isIfHov = hovId === iface.id;
           return (
             <div
               key={iface.id + node.id}
+              onMouseEnter={() => setHovId(iface.id)}
+              onMouseLeave={() => setHovId(null)}
               style={{
                 display: "flex", alignItems: "center", height: ITEM_ROW_H,
                 paddingLeft: 4, paddingRight: 4, borderRadius: 8,
+                background: isIfSel ? "rgba(39, 9, 220, 0.05)" : isIfHov ? TOKENS.bgHover : "transparent",
+                outline: isIfSel ? "1px solid #2709DC" : "none",
+                outlineOffset: -1,
                 cursor: "pointer", userSelect: "none",
               }}
               onClick={() => onSel(iface.id)}
@@ -501,6 +517,7 @@ function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSe
             key={child.id} node={child} ifaces={ifaces} depth={depth + 1}
             hovId={hovId} setHovId={setHovId} selId={selId} onSel={onSel} onSelBlock={onSelBlock}
             focusSys={focusSys} sbExp={sbExp} togSb={togSb} onQuickAdd={onQuickAdd}
+            editingItemId={editingItemId} onRenameItem={onRenameItem}
             lines={childLines}
           />
         );
@@ -536,6 +553,11 @@ export default function Sidebar({
   togSbIface,
   setModal,
   resizingRef,
+  focusId,
+  breadcrumb,
+  onAddItem,
+  editingItemId,
+  onRenameItem,
 }) {
   const [branchHovId, setBranchHovId] = useState(null);
   const [branchSelId, setBranchSelId] = useState(null);
@@ -646,10 +668,11 @@ export default function Sidebar({
       {/* ═══ 2. BRANCH SECTION ═══ */}
       <div style={{
         display: "flex", flexDirection: "column", gap: 8, paddingLeft: 10, paddingRight: 10, minWidth: sidebarWidth,
-        ...(branchHeight != null ? { height: branchHeight, flexShrink: 0, overflowY: "auto", overflowX: "clip" } : {}),
+        ...(branchHeight != null ? { height: branchHeight, flexShrink: 0 } : {}),
+        overflow: "hidden",
       }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {/* Header — sticky */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, color: TOKENS.black }}>
             Branch
           </span>
@@ -664,18 +687,20 @@ export default function Sidebar({
           </button>
         </div>
 
-        {/* Branch tree */}
-        <BranchTree
-          data={branchTree}
-          hovId={branchHovId}
-          setHovId={setBranchHovId}
-          selId={branchSelId}
-          setSelId={setBranchSelId}
-          onMerge={handleMerge}
-          onAddChild={handleAddChild}
-          editingId={editingBranchId}
-          onEditDone={handleEditDone}
-        />
+        {/* Branch tree — scrollable */}
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "clip" }}>
+          <BranchTree
+            data={branchTree}
+            hovId={branchHovId}
+            setHovId={setBranchHovId}
+            selId={branchSelId}
+            setSelId={setBranchSelId}
+            onMerge={handleMerge}
+            onAddChild={handleAddChild}
+            editingId={editingBranchId}
+            onEditDone={handleEditDone}
+          />
+        </div>
       </div>
 
       {/* ═══ Draggable Divider ═══ */}
@@ -693,8 +718,8 @@ export default function Sidebar({
 
       {/* ═══ 3. ITEMS SECTION ═══ */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 10, paddingRight: 10, flex: 1, overflow: "hidden", minWidth: sidebarWidth }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        {/* Header — sticky */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
           <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, color: TOKENS.black }}>
             Items
           </span>
@@ -714,7 +739,7 @@ export default function Sidebar({
             </button>
 
             {/* Blue New button */}
-            <button onClick={() => setModal({ mode: "full" })} style={{
+            <button onClick={() => onAddItem && onAddItem()} style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               paddingLeft: 2, paddingRight: 7, paddingTop: 2, paddingBottom: 2,
               borderRadius: 6, border: "none", background: TOKENS.accent,
@@ -726,10 +751,43 @@ export default function Sidebar({
           </div>
         </div>
 
+        {/* Breadcrumb — shown in focus mode */}
+        {focusId && breadcrumb && breadcrumb.length > 1 && (
+          <>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}>
+              {breadcrumb.map((crumb, idx, arr) => (
+                <div key={crumb.id || "root"} style={{ display: "flex", alignItems: "center" }}>
+                  <div
+                    onClick={() => focusSys(crumb.id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 2, paddingRight: 4,
+                      borderRadius: 4, cursor: "pointer",
+                    }}
+                  >
+                    {crumb.id === null ? <HomeIcon size={24} /> : <PackageIcon size={24} />}
+                    <span style={{
+                      fontFamily: FONT, fontSize: 12, fontWeight: 400,
+                      color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}>
+                      {crumb.name}
+                    </span>
+                  </div>
+                  {idx < arr.length - 1 && (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, transform: "rotate(-90deg)", color: TOKENS.textPrimary }}>
+                      <ChevronDown size={12} />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{ height: 1, background: TOKENS.divider, width: "100%", marginLeft: -10, marginRight: -10, width: "calc(100% + 20px)" }} />
+          </>
+        )}
+
         {/* Items tree */}
         <div style={{ display: "flex", flexDirection: "column", flex: 1, overflowY: "auto", overflowX: "clip" }}>
           {/* Project root */}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, height: ITEM_ROW_H, borderRadius: 8, userSelect: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", height: ITEM_ROW_H, borderRadius: 8, userSelect: "none" }}>
             <div style={{ display: "flex", flex: 1, alignItems: "center", gap: 4, minWidth: 0 }}>
               <div style={{ color: TOKENS.textPrimary, flexShrink: 0 }}><HomeIcon size={24} /></div>
               <span style={{
@@ -750,6 +808,7 @@ export default function Sidebar({
               onSel={id => { setItemSelId(id); if (onSel) onSel(id); }}
               onSelBlock={id => { setItemSelId(null); if (onSelBlock) onSelBlock(id); }}
               focusSys={focusSys} sbExp={sbExp} togSb={togSb} onQuickAdd={onQuickAdd}
+              editingItemId={editingItemId} onRenameItem={onRenameItem}
             />
           ))}
         </div>
