@@ -227,8 +227,16 @@ function computePills(ifaces, vis, dots, offsets) {
   const pills = {}, placed = [];
   const blockRects = Object.values(vis).filter(s => !(s.expanded && s.hasChildren)).map(b => ({ x: b.x - 8, y: b.y - 8, w: b.w + 16, h: b.h + 16 }));
   for (const iface of ifaces) {
-    const da = dots[iface.id]; if (!da) continue;
+    const da = dots[iface.id];
     const pw = Math.max(iface.name.length * 7.2 + 28, PILL_MIN_W);
+    if (!da) {
+      // Unconnected interface — place at canvasPos if available
+      if (iface.canvasPos) {
+        const off = offsets[iface.id] || { dx: 0, dy: 0 };
+        pills[iface.id] = { x: iface.canvasPos.x - pw / 2 + off.dx, y: iface.canvasPos.y - PILL_H / 2 + off.dy, w: pw, h: PILL_H };
+      }
+      continue;
+    }
     const sB = vis[iface.source], tB = vis[iface.target];
 
     const midX = (da.s.cx + da.t.cx) / 2, midY = (da.s.cy + da.t.cy) / 2;
@@ -570,7 +578,7 @@ const initIfaces = [
     { id: "REQ-78", tests: [] },
   ], dateCreated: "2025-05-28", dateLastUpdated: "2025-05-28", verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "Avionics team", progress: 5 },
   { id: "INT-31", source: "du42", target: "ground-station", name: "du42 → Ground Stn", desc: "External data uplink", interfaceType: "Electrical", requirements: [
-    { id: "REQ-67", tests: [{ name: "Uplink bandwidth test", status: "pass" }, { name: "Protocol compliance check", status: "pass" }] },
+    { id: "REQ-67", tests: [{ name: "Uplink bandwidth test", status: "fail" }, { name: "Protocol compliance check", status: "pass" }] },
   ], dateCreated: "2025-02-19", dateLastUpdated: "2025-05-18", verificationStatus: "success", maturityLevel: "verified", owner: "Yoon Bae", team: "Ground ops", progress: 80 },
 ];
 
@@ -915,10 +923,9 @@ function AIChatPanel({ onCollapse, onToggleAgents, width, collapsed, messages, o
   };
 
   return (
-    <div style={{ width: collapsed ? 0 : (width || 284), background: "#f7f7f7", display: "flex", flexDirection: "column", flexShrink: 0, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", overflow: "hidden", transition: "width 0.3s ease", padding: collapsed ? 0 : 10, boxSizing: "border-box" }}>
-      <div style={{ background: "#fff", borderRadius: 12, flex: 1, display: "flex", flexDirection: "column", gap: 24, padding: 10, minHeight: 0, minWidth: 0, overflow: "hidden", border: "1px solid #e4e4e4" }}>
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+    <div style={{ width: collapsed ? 0 : (width || 284), background: "#f7f7f7", display: "flex", flexDirection: "column", gap: 10, flexShrink: 0, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", overflow: "hidden", transition: "width 0.3s ease", padding: collapsed ? 0 : 10, boxSizing: "border-box" }}>
+        {/* Header — outside white card */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0, paddingLeft: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {/* Flow AI Logo Mark */}
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -940,6 +947,7 @@ function AIChatPanel({ onCollapse, onToggleAgents, width, collapsed, messages, o
           </div>
         </div>
 
+      <div style={{ background: "#fff", borderRadius: 12, flex: 1, display: "flex", flexDirection: "column", gap: 8, padding: 10, minHeight: 0, minWidth: 0, overflow: "hidden", border: "1px solid #e4e4e4" }}>
         {/* Content area — changes layout based on whether messages exist */}
         {messages.length === 0 ? (
           /* NEW CHAT: input on top, empty space below */
@@ -1445,7 +1453,7 @@ function DetailView({ tabs, activeTab, onSetActive, onCloseTab, ifaces, allSyste
     <div style={{
       width: width || 380,
       minWidth: 330,
-      background: "#F4F4F4",
+      background: "#f7f7f7",
       display: "flex",
       flexDirection: "column",
       flexShrink: 0,
@@ -1457,7 +1465,7 @@ function DetailView({ tabs, activeTab, onSetActive, onCloseTab, ifaces, allSyste
         alignItems: "center",
         gap: 6,
         padding: "8px 12px",
-        background: "#F4F4F4",
+        background: "#f7f7f7",
         borderRight: "1px solid #E4E4E4",
         flexShrink: 0,
       }}>
@@ -1640,7 +1648,7 @@ function DetailView({ tabs, activeTab, onSetActive, onCloseTab, ifaces, allSyste
             <div style={{ padding: "0 16px", display: "flex", flexDirection: "column", gap: 12 }}>
               <span style={{ fontFamily: FONT, fontSize: 12, fontWeight: 500, color: "#000" }}>Requirement</span>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {(activeIface.requirements || []).map(req => {
                   const reqId = typeof req === "string" ? req : req.id;
                   const reqData = allRequirements.find(r => r.id === reqId);
@@ -1675,9 +1683,9 @@ function DetailView({ tabs, activeTab, onSetActive, onCloseTab, ifaces, allSyste
                 <div style={{
                   display: "flex", alignItems: "center",
                   padding: "8px 12px", borderRadius: 6,
-                  border: "1px dashed #8A8A8A", cursor: "pointer",
+                  border: "1px dashed #c1c1c1", cursor: "pointer",
                 }}>
-                  <span style={{ fontFamily: FONT, fontSize: 12, color: "#8A8A8A" }}>Add requirement</span>
+                  <span style={{ fontFamily: FONT, fontSize: 12, color: "#c1c1c1" }}>Add requirement</span>
                 </div>
               </div>
             </div>
@@ -1699,6 +1707,10 @@ export default function SERMTool() {
   const [hovBlock, setHovBlock] = useState(null);
   const [hovCursor, setHovCursor] = useState(null);
   const [selBlockId, setSelBlockId] = useState(null);
+  const [iconPopup, setIconPopup] = useState(null);
+  const [ctxMenu, setCtxMenu] = useState(null);
+  const [ctxMenuHover, setCtxMenuHover] = useState(null);
+  const [editingBlockId, setEditingBlockId] = useState(null);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1.0);
   const [dragging, setDragging] = useState(null);
@@ -1780,7 +1792,7 @@ export default function SERMTool() {
   const parentMap = useMemo(() => buildParentMap(hierarchy, null), [hierarchy]);
 
   useEffect(() => { if (!canvasRef.current) return; const ro = new ResizeObserver(e => { for (const en of e) setViewSize({ w: en.contentRect.width, h: en.contentRect.height }); }); ro.observe(canvasRef.current); return () => ro.disconnect(); }, []);
-  useEffect(() => { if (!selId) return; const iface = ifaces.find(i => i.id === selId); if (!iface) return; setSbExp(p => { const n = new Set(p); [iface.source, iface.target].forEach(s => { n.add(s); getAncestorIds(s, parentMap).forEach(a => n.add(a)); }); return n; }); }, [selId, ifaces, parentMap]);
+  useEffect(() => { if (!selId) return; const iface = ifaces.find(i => i.id === selId); if (!iface) return; setSbExp(p => { const n = new Set(p); [iface.source, iface.target].forEach(s => { n.add(s); getAncestorIds(s, parentMap).forEach(a => n.add(a)); }); return n; }); setExpanded(p => { const n = new Set(p); [iface.source, iface.target].forEach(s => { getAncestorIds(s, parentMap).forEach(a => { const node = findNode(hierarchy, a); if (node?.children?.length) n.add(a); }); }); return n; }); }, [selId, ifaces, parentMap, hierarchy]);
   useEffect(() => { if (!selBlockId) return; setSbExp(p => { const n = new Set(p); getAncestorIds(selBlockId, parentMap).forEach(a => n.add(a)); return n; }); }, [selBlockId, parentMap]);
 
   useEffect(() => {
@@ -1990,7 +2002,7 @@ export default function SERMTool() {
     setSelBlockId(prev2 => prev2 === id ? null : id);
     setSelId(null);
   }, []);
-  const handleCanvasDown = useCallback((e) => { if (!dragging && !connecting && !draggingPill && !draggingLine) { setPanSt(true); panRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; setSelId(null); setSelBlockId(null); } }, [pan, dragging, connecting, draggingPill, draggingLine]);
+  const handleCanvasDown = useCallback((e) => { if (!dragging && !connecting && !draggingPill && !draggingLine) { setPanSt(true); panRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y }; setSelId(null); setSelBlockId(null); setIconPopup(null); setCtxMenu(null); } }, [pan, dragging, connecting, draggingPill, draggingLine]);
   const handleDotDown = useCallback((e, sysId, cx, cy) => { e.stopPropagation(); e.preventDefault(); const r = svgRef.current.getBoundingClientRect(); setConnecting({ sourceId: sysId, startX: cx, startY: cy, currentX: (e.clientX - r.left - pan.x) / zoom, currentY: (e.clientY - r.top - pan.y) / zoom }); }, [pan, zoom]);
   const handlePillDown = useCallback((e, ifId) => { e.stopPropagation(); setDraggingPill(ifId); setPillDragStart({ x: e.clientX, y: e.clientY, off: pillOffsets[ifId] || { dx: 0, dy: 0 } }); pillDownPos.current = { x: e.clientX, y: e.clientY }; }, [pillOffsets]);
   // Detail view tab management
@@ -2032,6 +2044,53 @@ export default function SERMTool() {
     if (newName.trim()) setIfaces(prev => prev.map(i => i.id === id ? { ...i, name: newName.trim() } : i));
     setEditingIfaceId(null);
   }, []);
+
+  // Right-click context menu on canvas
+  const handleCanvasContextMenu = useCallback((e) => {
+    e.preventDefault();
+    const r = svgRef.current.getBoundingClientRect();
+    const svgX = (e.clientX - r.left - pan.x) / zoom;
+    const svgY = (e.clientY - r.top - pan.y) / zoom;
+    setCtxMenu({ screenX: e.clientX, screenY: e.clientY, svgX, svgY });
+    setIconPopup(null);
+    setCtxMenuHover(null);
+  }, [pan, zoom]);
+
+  const handleCtxAddSystem = useCallback(() => {
+    if (!ctxMenu) return;
+    const id = `sys-${Date.now()}-${++_itemCounter}`;
+    const newItem = { id, name: "New System", reqs: 0, color: COLORS.orange, children: [] };
+    const newHier = [...hierarchy, newItem];
+    const newLayout = computeLayout(newHier, expanded, ifaces);
+    const basePos = newLayout[id];
+    const dx = basePos ? ctxMenu.svgX - basePos.x : 0;
+    const dy = basePos ? ctxMenu.svgY - basePos.y : 0;
+    setHierarchy(newHier);
+    setDragOffsets(prev => ({ ...prev, [id]: { dx, dy } }));
+    setEditingBlockId(id);
+    setCtxMenu(null);
+  }, [ctxMenu, hierarchy, expanded, ifaces]);
+
+  const handleCtxAddInterface = useCallback(() => {
+    if (!ctxMenu) return;
+    const id = `INT-${Date.now()}`;
+    const today = new Date().toISOString().split("T")[0];
+    const newIface = { id, source: "", target: "", name: "New Interface", desc: "", interfaceType: "Signal", requirements: [], dateCreated: today, dateLastUpdated: today, verificationStatus: "unknown", maturityLevel: "concept", owner: "", team: "", progress: 0, canvasPos: { x: ctxMenu.svgX, y: ctxMenu.svgY } };
+    setIfaces(prev => [...prev, newIface]);
+    openDetailTab(id);
+    setCtxMenu(null);
+  }, [ctxMenu, openDetailTab]);
+
+  const handleRenameBlock = useCallback((id, newName) => {
+    if (newName.trim()) {
+      setHierarchy(prev => {
+        const rename = (nodes) => nodes.map(n => n.id === id ? { ...n, name: newName.trim() } : n.children ? { ...n, children: rename(n.children) } : n);
+        return rename(prev);
+      });
+    }
+    setEditingBlockId(null);
+  }, []);
+
   // Handle dragging the vertical middle segment of a connector line
   const handleLineDown = useCallback((e, ifId, currentMidX) => {
     e.stopPropagation();
@@ -2391,6 +2450,8 @@ export default function SERMTool() {
           onAddItem={handleAddItem}
           editingItemId={editingItemId}
           onRenameItem={handleRenameItem}
+          onStartEditItem={setEditingItemId}
+          onRenameIface={handleRenameIface}
         />
         {!sidebarCollapsed && <ResizeHandle onMouseDown={e => startResize("sidebar", sidebarWidth, e)} zIndex={20} />}
         {/* Workbench Panel — left of canvas */}
@@ -2561,18 +2622,33 @@ export default function SERMTool() {
           </div>
           <MiniMap blocks={visible} pan={pan} zoom={zoom} vw={viewSize.w} vh={viewSize.h} />
 
-          <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} style={{ background: "#ffffff", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
+          <svg ref={svgRef} width="100%" height="100%" onMouseDown={handleCanvasDown} onContextMenu={handleCanvasContextMenu} style={{ background: "#ffffff", cursor: panning ? "grabbing" : connecting ? "crosshair" : "default" }}>
             <defs>
               <filter id="bs" x="-4%" y="-4%" width="108%" height="116%"><feDropShadow dx="0" dy="1" stdDeviation="2.5" floodOpacity="0.05" /></filter>
               <pattern id="grid" width={GRID} height={GRID} patternUnits="userSpaceOnUse" patternTransform={`translate(${pan.x},${pan.y}) scale(${zoom})`}><circle cx={GRID / 2} cy={GRID / 2} r="1.2" fill="#8a8a8a" opacity="0.6" /></pattern>
             </defs>
             <rect width="100%" height="100%" fill="#ffffff" /><rect width="100%" height="100%" fill="url(#grid)" />
             <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
-              {containers.map(sys => { const isSB = selBlockId === sys.id; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => { setHovBlock(null); setHovCursor(null); }} onMouseMove={e => { if (!connecting && !draggingDot) { const r = svgRef.current.getBoundingClientRect(); setHovCursor({ x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom }); } }} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.5 : 1, transition: "opacity 0.15s" }}>
+              {containers.map(sys => { const isSB = selBlockId === sys.id; const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id)); return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onContextMenu={e => e.stopPropagation()} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => { setHovBlock(null); setHovCursor(null); }} onMouseMove={e => { if (!connecting && !draggingDot) { const r = svgRef.current.getBoundingClientRect(); setHovCursor({ x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom }); } }} style={{ cursor: "grab", opacity: selId && !relIds.includes(sys.id) ? 0.5 : 1, transition: "opacity 0.15s" }}>
                 <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={12} fill={relIds.includes(sys.id) || isSB ? "rgba(39,9,220,0.05)" : "rgba(249,115,22,0.05)"} stroke={relIds.includes(sys.id) || isSB ? "#2709dc" : "#F97316"} strokeWidth={1.5} />
                 <CubeIcon x={sys.x + 6} y={sys.y + 6} size={24} color="#FF7701" />
-                <text x={sys.x + 30} y={sys.y + 24} fontSize={12} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={500} fill="#000">{sys.name}</text>
-                {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={6} fill="#fff" stroke="#c1c1c1" strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
+                {editingBlockId === sys.id ? (
+                  <foreignObject x={sys.x + 28} y={sys.y + 8} width={sys.w - 36} height={22}>
+                    <input
+                      xmlns="http://www.w3.org/1999/xhtml"
+                      autoFocus
+                      defaultValue={sys.name}
+                      onFocus={e => e.target.select()}
+                      onBlur={e => handleRenameBlock(sys.id, e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = sys.name; e.target.blur(); } }}
+                      onMouseDown={e => e.stopPropagation()}
+                      style={{ width: "100%", height: "100%", border: "none", outline: "none", background: "transparent", fontSize: 12, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", fontWeight: 500, color: "#000", padding: 0 }}
+                    />
+                  </foreignObject>
+                ) : (
+                  <text x={sys.x + 30} y={sys.y + 24} fontSize={12} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={500} fill="#000">{sys.name}</text>
+                )}
+                {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={6} fill="#fff" stroke={selId === d.ifaceId ? "#2709DC" : "#c1c1c1"} strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
                   e.stopPropagation(); e.preventDefault();
                   const ifaceObj = ifaces.find(iface => iface.id === d.ifaceId);
                   if (ifaceObj) setDraggingDot({ ifaceId: d.ifaceId, role: ifaceObj.source === sys.id ? "source" : "target", blockId: sys.id, currentDotId: d.id, snapDotId: d.id });
@@ -2583,21 +2659,22 @@ export default function SERMTool() {
 
               {ifaces.map(iface => {
                 const da = animDots[iface.id]; const pill = pills[iface.id];
-                if (!da || !pill) return null;
+                if (!pill) return null;
                 if (typeFilter.size > 0 && !typeFilter.has(iface.interfaceType)) return null;
                 const pcx = pill.x + pill.w / 2, pcy = pill.y + pill.h / 2;
                 const isAct = selId === iface.id || hovId === iface.id || blockRelIfaceIds.has(iface.id);
-                const sDotId = da.s.id, tDotId = da.t.id;
-                // Source→Pill path: source dot determines exit direction, pill is flexible endpoint
-                const sPath = roundPath(smartElbowPath(da.s.cx, da.s.cy, pcx, pcy, sDotId, null, undefined, leafRects));
-                // Pill→Target path: pill is flexible start, target dot determines entry direction
-                const tPath = roundPath(smartElbowPath(pcx, pcy, da.t.cx, da.t.cy, null, tDotId, undefined, leafRects));
                 const dimIface = selId && selId !== iface.id;
+                let sPath = null, tPath = null;
+                if (da) {
+                  const sDotId = da.s.id, tDotId = da.t.id;
+                  sPath = roundPath(smartElbowPath(da.s.cx, da.s.cy, pcx, pcy, sDotId, null, undefined, leafRects));
+                  tPath = roundPath(smartElbowPath(pcx, pcy, da.t.cx, da.t.cy, null, tDotId, undefined, leafRects));
+                }
                 return <g key={iface.id} style={{ opacity: dimIface ? 0.5 : 1, transition: "opacity 0.15s" }}>
-                  <path d={sPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={e => handlePillClick(e, iface.id)} style={{ cursor: "grab" }} />
-                  <path d={tPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={e => handlePillClick(e, iface.id)} style={{ cursor: "grab" }} />
-                  <path d={sPath} fill="none" stroke={isAct ? "#2709dc" : "#c1c1c1"} strokeWidth={1.5} />
-                  <path d={tPath} fill="none" stroke={isAct ? "#2709dc" : "#c1c1c1"} strokeWidth={1.5} />
+                  {sPath && <><path d={sPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={e => handlePillClick(e, iface.id)} style={{ cursor: "grab" }} />
+                  <path d={sPath} fill="none" stroke={isAct ? "#2709dc" : "#c1c1c1"} strokeWidth={1.5} /></>}
+                  {tPath && <><path d={tPath} fill="none" stroke="transparent" strokeWidth={14} onMouseDown={e => handlePillDown(e, iface.id)} onClick={e => handlePillClick(e, iface.id)} style={{ cursor: "grab" }} />
+                  <path d={tPath} fill="none" stroke={isAct ? "#2709dc" : "#c1c1c1"} strokeWidth={1.5} /></>}
                   <rect x={pill.x} y={pill.y} width={pill.w} height={pill.h} rx={pill.h / 2} fill="#ffffff" stroke={isAct ? "#2709dc" : "#c1c1c1"} strokeWidth={1.5} style={{ cursor: "grab" }} onMouseDown={e => handlePillDown(e, iface.id)} onClick={e => handlePillClick(e, iface.id)} onDoubleClick={e => handlePillDblClick(e, iface.id)} />
                   {editingIfaceId === iface.id ? (
                     <foreignObject x={pill.x + 4} y={pill.y + 1} width={pill.w - 8} height={pill.h - 2}>
@@ -2702,10 +2779,25 @@ export default function SERMTool() {
                 const isR = relIds.includes(sys.id); const isSB = selBlockId === sys.id; const isC = !sys.expanded && sys.hasChildren;
                 const isH = hovBlock === sys.id && !connecting;
                 const allD = getDots(sys); const cD = connDots[sys.id] || []; const cIds = new Set(cD.map(d => d.id));
-                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => { setHovBlock(null); setHovCursor(null); }} onMouseMove={e => { if (!connecting && !draggingDot) { const r = svgRef.current.getBoundingClientRect(); setHovCursor({ x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom }); } }} style={{ cursor: "grab", opacity: dim ? 0.5 : 1, transition: "opacity 0.15s" }}>
+                return <g key={sys.id} onMouseDown={e => handleBlockDown(e, sys.id)} onClick={e => handleBlockClick(e, sys.id)} onContextMenu={e => e.stopPropagation()} onMouseEnter={() => setHovBlock(sys.id)} onMouseLeave={() => { setHovBlock(null); setHovCursor(null); }} onMouseMove={e => { if (!connecting && !draggingDot) { const r = svgRef.current.getBoundingClientRect(); setHovCursor({ x: (e.clientX - r.left - pan.x) / zoom, y: (e.clientY - r.top - pan.y) / zoom }); } }} style={{ cursor: "grab", opacity: dim ? 0.5 : 1, transition: "opacity 0.15s" }}>
                   <rect x={sys.x} y={sys.y} width={sys.w} height={sys.h} rx={8} fill={isR || isSB ? "rgba(39,9,220,0.05)" : "#fff"} stroke={isR || isSB ? "#2709dc" : isH ? "#93b4f0" : "#c1c1c1"} strokeWidth={1.5} filter="url(#bs)" />
                   <CubeIcon x={sys.x + 10} y={sys.y + 10} size={24} color="#FF7701" />
-                  <text x={sys.x + 38} y={sys.y + 26} fontSize={12} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={500} fill="#000">{sys.name.length > 20 ? sys.name.slice(0, 20) + "..." : sys.name}</text>
+                  {editingBlockId === sys.id ? (
+                    <foreignObject x={sys.x + 36} y={sys.y + 10} width={sys.w - 44} height={22}>
+                      <input
+                        xmlns="http://www.w3.org/1999/xhtml"
+                        autoFocus
+                        defaultValue={sys.name}
+                        onFocus={e => e.target.select()}
+                        onBlur={e => handleRenameBlock(sys.id, e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") e.target.blur(); if (e.key === "Escape") { e.target.value = sys.name; e.target.blur(); } }}
+                        onMouseDown={e => e.stopPropagation()}
+                        style={{ width: "100%", height: "100%", border: "none", outline: "none", background: "transparent", fontSize: 12, fontFamily: "'AktivGrotesk','DM Sans',sans-serif", fontWeight: 500, color: "#000", padding: 0 }}
+                      />
+                    </foreignObject>
+                  ) : (
+                    <text x={sys.x + 38} y={sys.y + 26} fontSize={12} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={500} fill="#000">{sys.name.length > 20 ? sys.name.slice(0, 20) + "..." : sys.name}</text>
+                  )}
                   {isC && (() => { const cnt = sys.children?.length || 0; const lbl = `${cnt} Sub System${cnt !== 1 ? "s" : ""}`; if (zoom < 0.8) { const bW = lbl.length * 6.2 + 12; const bH = 21; const bx = sys.x + sys.w - bW - 12; const by = sys.y + sys.h - bH - 12; return <><rect x={bx} y={by} width={bW} height={bH} rx={4} fill="#f2f2f2" /><text x={bx + bW / 2} y={by + bH / 2 + 4} textAnchor="middle" fontSize={12} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={400} fill="#8a8a8a">{lbl}</text></>; } return <text x={sys.x + 18} y={sys.y + sys.h - 16} fontSize={12} fontFamily="'AktivGrotesk','DM Sans',sans-serif" fontWeight={400} fill="#8a8a8a">{lbl}</text>; })()}
                   {zoom >= 0.8 && (() => {
                     const descIds = new Set([sys.id, ...getDescendantIds(hierarchy, sys.id)]);
@@ -2721,9 +2813,79 @@ export default function SERMTool() {
                     if (hasDesignVal) activeIcons.push("dv");
                     if (activeIcons.length === 0) return null;
                     const iconSize = 24; const iconGap = 4; const groupW = iconSize * activeIcons.length + iconGap * (activeIcons.length - 1); const gx = sys.x + sys.w - groupW - 12; const gy = sys.y + sys.h - iconSize - 10;
-                    return <>{activeIcons.map((icon, i) => { const ix = gx + i * (iconSize + iconGap); return <g key={icon}><rect x={ix} y={gy} width={iconSize} height={iconSize} rx={4} fill="none" stroke="#c1c1c1" strokeWidth={1} />{icon === "req" && <SvgRequirementIcon x={ix} y={gy} size={iconSize} />}{icon === "test" && <SvgTestIcon x={ix} y={gy} size={iconSize} />}{icon === "doc" && <SvgDocumentIcon x={ix} y={gy} size={iconSize} />}{icon === "dv" && <SvgDesignValueIcon x={ix} y={gy} size={iconSize} />}</g>; })}</>;
+                    const openType = iconPopup?.sysId === sys.id ? iconPopup.type : null;
+                    return <>{activeIcons.map((icon, i) => { const ix = gx + i * (iconSize + iconGap); const isActive = openType === icon; return <g key={icon} style={{ cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); setIconPopup(prev => prev?.sysId === sys.id && prev?.type === icon ? null : { sysId: sys.id, type: icon }); }}><rect x={ix} y={gy} width={iconSize} height={iconSize} rx={4} fill={isActive ? "#f4f4f4" : "#fff"} stroke="#c1c1c1" strokeWidth={1} />{icon === "req" && <SvgRequirementIcon x={ix} y={gy} size={iconSize} />}{icon === "test" && <SvgTestIcon x={ix} y={gy} size={iconSize} />}{icon === "doc" && <SvgDocumentIcon x={ix} y={gy} size={iconSize} />}{icon === "dv" && <SvgDesignValueIcon x={ix} y={gy} size={iconSize} />}</g>; })}
+                      {openType && (() => {
+                        const openIdx = activeIcons.indexOf(openType);
+                        const popIx = gx + openIdx * (iconSize + iconGap);
+                        const popContStyle = { background: "#fff", borderRadius: 6, padding: 8, display: "flex", flexDirection: "column", gap: 8, boxShadow: "0 2px 8px rgba(0,0,0,0.12)", border: "1px solid #e4e4e4", fontFamily: "'AktivGrotesk','DM Sans',sans-serif" };
+                        const rowStyle = { background: "#fff", border: "1px solid #e4e4e4", borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 4, paddingRight: 6, paddingTop: 4, paddingBottom: 4 };
+                        const ownerBadge = <div style={{ width: 20, height: 20, borderRadius: "50%", border: "0.833px dashed #8a8a8a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><svg width={9} height={9} viewBox="0 0 11 11" fill="none"><path d="M5.5 1.5C5.5 1.5 7 3 7 4C7 4.82843 6.32843 5.5 5.5 5.5C4.67157 5.5 4 4.82843 4 4C4 3 5.5 1.5 5.5 1.5Z" stroke="#8a8a8a" strokeWidth={0.9} fill="none" /><path d="M2 9.5C2 7.567 3.567 6 5.5 6C7.433 6 9 7.567 9 9.5" stroke="#8a8a8a" strokeWidth={0.9} strokeLinecap="round" fill="none" /></svg></div>;
+
+                        if (openType === "req") {
+                          const reqMap = new Map();
+                          sysIfaces.forEach(iface => { if (iface.requirements) iface.requirements.forEach(r => { if (!reqMap.has(r.id)) reqMap.set(r.id, r); }); });
+                          const reqs = [...reqMap.values()];
+                          const popW = 260; const rowH = 32;
+                          const popH = 8 + 24 + 8 + reqs.length * (rowH + 6) - 6 + 8;
+                          return <foreignObject x={popIx} y={gy + iconSize + 6} width={popW} height={popH} style={{ overflow: "visible" }}>
+                            <div xmlns="http://www.w3.org/1999/xhtml" style={popContStyle}>
+                              <div style={{ padding: "0 4px" }}><span style={{ fontSize: 12, fontWeight: 500, color: "#8a8a8a" }}>Requirements</span></div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                {reqs.map(rq => {
+                                  const ref = allRequirements.find(r => r.id === rq.id);
+                                  return <div key={rq.id} style={rowStyle}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                      <div style={{ display: "flex", alignItems: "center" }}>
+                                        <svg width={24} height={24} viewBox="0 0 24 24" fill="none"><path d="M13.8002 9.25L11.8684 11.1818C11.6927 11.3575 11.4077 11.3575 11.232 11.1818L10.2002 10.15" stroke="#0084D1" strokeWidth={1.2} fill="none" /><path d="M7.5 15.55V7.58622C7.5 7.49738 7.5263 7.41053 7.57558 7.33661L8.26641 6.30036C8.34987 6.17517 8.49037 6.09998 8.64083 6.09998H16.05C16.2985 6.09998 16.5 6.30145 16.5 6.54998V14.2M7.5 15.55C7.5 15.55 8.10442 16.9 8.85 16.9C11.4001 16.9 14.8351 16.9 16.0508 16.9C16.2994 16.9 16.5 16.6985 16.5 16.45V14.2M7.5 15.55C7.5 15.55 8.10442 14.2 8.85 14.2C11.55 14.2 16.5 14.2 16.5 14.2" stroke="#0084D1" strokeWidth={1.2} fill="none" /></svg>
+                                        <span style={{ fontSize: 12, fontWeight: 400, color: "#8a8a8a", whiteSpace: "nowrap" }}>{rq.id}</span>
+                                      </div>
+                                      <span style={{ fontSize: 12, fontWeight: 500, color: "#151414", whiteSpace: "nowrap" }}>{ref?.label || rq.id}</span>
+                                    </div>
+                                    {ownerBadge}
+                                  </div>;
+                                })}
+                              </div>
+                            </div>
+                          </foreignObject>;
+                        }
+
+                        if (openType === "test") {
+                          const tests = [];
+                          sysIfaces.forEach(iface => { if (iface.requirements) iface.requirements.forEach(r => { if (r.tests) r.tests.forEach(t => tests.push(t)); }); });
+                          const popW = 280; const rowH = 32;
+                          const popH = 8 + 24 + 8 + tests.length * (rowH + 6) - 6 + 8;
+                          const statusColor = { pass: "#009966", fail: "#D5000A", pending: "#8a8a8a" };
+                          return <foreignObject x={popIx} y={gy + iconSize + 6} width={popW} height={popH} style={{ overflow: "visible" }}>
+                            <div xmlns="http://www.w3.org/1999/xhtml" style={popContStyle}>
+                              <div style={{ padding: "0 4px" }}><span style={{ fontSize: 12, fontWeight: 500, color: "#8a8a8a" }}>Tests</span></div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                {tests.map((t, ti) => <div key={ti} style={rowStyle}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 8, overflow: "hidden", minWidth: 0, flex: 1 }}>
+                                    <svg style={{ flexShrink: 0 }} width={24} height={24} viewBox="0 0 24 24" fill="none"><path d="M9.50023 6H10.7502M14.5002 6H13.2502M13.2502 6H12.0002H10.7502M13.2502 6V9.73205C13.2502 9.90759 13.2964 10.08 13.3842 10.2321L14.9823 13M10.7502 6L10.7502 9.73205C10.7502 9.90759 10.704 10.08 10.6163 10.2321L9.01818 13M14.9823 13L16.4257 15.5C16.6043 15.8094 16.6043 16.1906 16.4257 16.5L16.2889 16.7369C16.1103 17.0463 15.7801 17.2369 15.4229 17.2369H8.57758C8.22032 17.2369 7.89019 17.0463 7.71156 16.7369L7.57481 16.5C7.39618 16.1906 7.39618 15.8094 7.57481 15.5L9.01818 13M14.9823 13H9.01818" stroke="#009966" strokeWidth={1.2} fill="none" /></svg>
+                                    <span style={{ fontSize: 12, fontWeight: 500, color: "#151414", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.name}</span>
+                                  </div>
+                                  {t.status === "pass" ? <div style={{ display: "inline-flex", alignItems: "center", gap: 0, padding: "1px 8px 1px 2px", borderRadius: 5, border: "1px solid #00A469", background: "rgba(0,164,105,0.05)", flexShrink: 0 }}>
+                                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none"><path d="M13.8002 10.7999L11.1154 13.1999L10.2002 12.3818M16.8002 8.99994L16.8002 15C16.8002 15.9941 15.9943 16.8 15.0002 16.8H9.0002C8.00608 16.8 7.2002 15.9941 7.2002 15V8.99994C7.2002 8.00583 8.00608 7.19995 9.0002 7.19995H15.0002C15.9943 7.19995 16.8002 8.00583 16.8002 8.99994Z" stroke="#00A469" strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                    <span style={{ fontSize: 10, fontWeight: 500, color: "#151414", whiteSpace: "nowrap" }}>Verified</span>
+                                  </div> : t.status === "fail" ? <div style={{ display: "inline-flex", alignItems: "center", gap: 0, padding: "1px 8px 1px 2px", borderRadius: 5, border: "1px solid #DC0916", background: "rgba(220,9,22,0.05)", flexShrink: 0 }}>
+                                    <svg width={16} height={16} viewBox="0 0 24 24" fill="none"><path d="M14.0002 9.99951L12.0001 11.9996M12.0001 11.9996L10 13.9996M12.0001 11.9996L14 13.9995M12.0001 11.9996L10 9.99951M17.4001 8.6246L17.4001 15.3746C17.4001 16.493 16.4935 17.3996 15.3751 17.3996H8.6251C7.50672 17.3996 6.6001 16.493 6.6001 15.3746V8.6246C6.6001 7.50623 7.50672 6.59961 8.6251 6.59961H15.3751C16.4935 6.59961 17.4001 7.50623 17.4001 8.6246Z" stroke="#DC0916" strokeWidth={1.2} strokeLinecap="round" /></svg>
+                                    <span style={{ fontSize: 10, fontWeight: 500, color: "#151414", whiteSpace: "nowrap" }}>Failed</span>
+                                  </div> : <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor[t.status] || "#8a8a8a" }} />
+                                    <span style={{ fontSize: 11, fontWeight: 400, color: statusColor[t.status] || "#8a8a8a", textTransform: "capitalize" }}>{t.status}</span>
+                                  </div>}
+                                </div>)}
+                              </div>
+                            </div>
+                          </foreignObject>;
+                        }
+
+                        return null;
+                      })()}
+                    </>;
                   })()}
-                  {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={6} fill="#fff" stroke={isSB ? "#2709dc" : "#c1c1c1"} strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
+                  {cD.map((d, i) => <circle key={"cd" + i} cx={d.cx} cy={d.cy} r={6} fill="#fff" stroke={isSB || selId === d.ifaceId ? "#2709dc" : "#c1c1c1"} strokeWidth={1.5} style={{ cursor: draggingDot ? "grabbing" : "grab" }} onMouseDown={e => {
                     e.stopPropagation(); e.preventDefault();
                     const ifaceObj = ifaces.find(iface => iface.id === d.ifaceId);
                     if (ifaceObj) setDraggingDot({ ifaceId: d.ifaceId, role: ifaceObj.source === sys.id ? "source" : "target", blockId: sys.id, currentDotId: d.id, snapDotId: d.id });
@@ -2744,6 +2906,16 @@ export default function SERMTool() {
               })()}
             </g>
           </svg>
+          {ctxMenu && <div onMouseDown={e => e.stopPropagation()} style={{ position: "fixed", left: ctxMenu.screenX, top: ctxMenu.screenY, zIndex: 9999, background: "#fff", borderRadius: 8, padding: 2, display: "flex", flexDirection: "column", gap: 2, boxShadow: "0 2px 8px rgba(0,0,0,0.12)", border: "1px solid #E4E4E4" }}>
+            <div onClick={handleCtxAddSystem} onMouseEnter={() => setCtxMenuHover("system")} onMouseLeave={() => setCtxMenuHover(null)} style={{ display: "flex", alignItems: "center", paddingLeft: 2, paddingRight: 6, paddingTop: 2, paddingBottom: 2, borderRadius: 6, cursor: "pointer", background: ctxMenuHover === "system" ? "#E4E4E4" : "transparent" }}>
+              <DVPackageIcon size={24} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: "#151414", whiteSpace: "nowrap" }}>System</span>
+            </div>
+            <div onClick={handleCtxAddInterface} onMouseEnter={() => setCtxMenuHover("interface")} onMouseLeave={() => setCtxMenuHover(null)} style={{ display: "flex", alignItems: "center", paddingLeft: 2, paddingRight: 6, paddingTop: 2, paddingBottom: 2, borderRadius: 6, cursor: "pointer", background: ctxMenuHover === "interface" ? "#E4E4E4" : "transparent" }}>
+              <DVInterfaceIcon size={24} />
+              <span style={{ fontSize: 12, fontWeight: 500, color: "#151414", whiteSpace: "nowrap" }}>Interface</span>
+            </div>
+          </div>}
             </div>
           </div>
           </div>

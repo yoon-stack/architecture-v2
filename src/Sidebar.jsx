@@ -217,14 +217,21 @@ function flattenBranch(node, depth = 0, isLast = true, parentId = null, result =
   return result;
 }
 
-function BranchTree({ data, hovId, setHovId, selId, setSelId, onMerge, onAddChild, editingId, onEditDone }) {
+function BranchTree({ data, hovId, setHovId, selId, setSelId, onMerge, onAddChild, editingId, onEditDone, onStartEdit }) {
   const rows = useMemo(() => flattenBranch(data), [data]);
+  const [mergeHovId, setMergeHovId] = useState(null);
 
   const childMap = useMemo(() => {
     const m = {};
     for (const r of rows) {
       if (r.parentId != null) (m[r.parentId] ||= []).push(r);
     }
+    return m;
+  }, [rows]);
+
+  const rowMap = useMemo(() => {
+    const m = {};
+    for (const r of rows) m[r.id] = r;
     return m;
   }, [rows]);
 
@@ -291,17 +298,101 @@ function BranchTree({ data, hovId, setHovId, selId, setSelId, onMerge, onAddChil
     return els;
   }, [rows, childMap]);
 
+  // Build SVG path `d` string connecting a child row to its parent row
+  const buildConnectionPath = useCallback((childRow, parentRow) => {
+    const cx = parentRow.depth * B_COL + 9;
+    const cy = parentRow.rowIndex * B_ROW + B_ROW / 2;
+    const kcx = childRow.depth * B_COL + 9;
+    const kcy = childRow.rowIndex * B_ROW + B_ROW / 2;
+
+    if (childRow.hasChildren) {
+      const exitY = kcy - 20;
+      const entryY = kcy - B_DOT;
+      // From child S-curve top → curve to parent vertical → up to parent dot
+      return `M${kcx} ${entryY} C${kcx} ${exitY},${cx} ${entryY},${cx} ${exitY} L${cx} ${cy + B_DOT}`;
+    } else {
+      const depY = kcy - 9;
+      const arrX = cx + 9;
+      // From child dot → horizontal left → curve up → vertical to parent dot
+      return `M${kcx} ${kcy} L${arrX} ${kcy} C${cx + 1.5} ${kcy},${cx} ${kcy - 2},${cx} ${depY} L${cx} ${cy + B_DOT}`;
+    }
+  }, []);
+
+  // Static black overlay for selected branch → parent connection
+  const selOverlay = useMemo(() => {
+    if (!selId) return null;
+    const selRow = rowMap[selId];
+    if (!selRow || selRow.depth === 0) return null;
+    const parentRow = rowMap[selRow.parentId];
+    if (!parentRow) return null;
+    if (mergeHovId === selId) return null; // merge hover animation takes over
+
+    const cx = parentRow.depth * B_COL + 9;
+    const cy = parentRow.rowIndex * B_ROW + B_ROW / 2;
+    const kcx = selRow.depth * B_COL + 9;
+    const kcy = selRow.rowIndex * B_ROW + B_ROW / 2;
+    const pathD = buildConnectionPath(selRow, parentRow);
+
+    return (
+      <>
+        <circle cx={cx} cy={cy} r={B_DOT} fill="#5a5a5a" />
+        <path d={pathD} stroke="#5a5a5a" fill="none" strokeWidth={1} />
+        <circle cx={kcx} cy={kcy} r={B_DOT} fill="#5a5a5a" />
+      </>
+    );
+  }, [selId, mergeHovId, rowMap, buildConnectionPath]);
+
+  // Animated gradient-sweep overlay for merge hover
+  const mergeOverlay = useMemo(() => {
+    if (!mergeHovId) return null;
+    const childRow = rowMap[mergeHovId];
+    if (!childRow || childRow.depth === 0) return null;
+    const parentRow = rowMap[childRow.parentId];
+    if (!parentRow) return null;
+
+    const cx = parentRow.depth * B_COL + 9;
+    const cy = parentRow.rowIndex * B_ROW + B_ROW / 2;
+    const kcx = childRow.depth * B_COL + 9;
+    const kcy = childRow.rowIndex * B_ROW + B_ROW / 2;
+    const pathD = buildConnectionPath(childRow, parentRow);
+
+    return (
+      <>
+        <circle cx={cx} cy={cy} r={B_DOT} fill="#5a5a5a" />
+        <circle cx={kcx} cy={kcy} r={B_DOT} fill="#5a5a5a" />
+        {/* Base grey line */}
+        <path d={pathD} stroke={B_LINE} fill="none" strokeWidth={1} />
+        {/* Animated black sweep from child toward parent */}
+        <path
+          d={pathD} stroke="#5a5a5a" fill="none" strokeWidth={1.5}
+          pathLength="1"
+          strokeDasharray="0.4 0.6"
+          strokeLinecap="round"
+          style={{ animation: "mergeSweep 2.6s linear infinite" }}
+        />
+      </>
+    );
+  }, [mergeHovId, rowMap, buildConnectionPath]);
+
   const maxCol = Math.max(...rows.map(r => r.depth + 1));
   const svgW = maxCol * B_COL;
   const svgH = rows.length * B_ROW;
 
   return (
     <div style={{ position: "relative" }}>
+      <style>{`
+        @keyframes mergeSweep {
+          from { stroke-dashoffset: 1; }
+          to { stroke-dashoffset: -1; }
+        }
+      `}</style>
       <svg style={{
         position: "absolute", top: 0, left: 4,
         width: svgW, height: svgH, pointerEvents: "none", zIndex: 1,
       }}>
         {svgEls}
+        {selOverlay}
+        {mergeOverlay}
       </svg>
       {rows.map(row => {
         const isHov = hovId === row.id;
@@ -320,7 +411,7 @@ function BranchTree({ data, hovId, setHovId, selId, setSelId, onMerge, onAddChil
               outline: isSel ? "1px solid #e4e4e4" : "none", outlineOffset: -1,
             }}
             onMouseEnter={() => setHovId(row.id)}
-            onMouseLeave={() => setHovId(null)}
+            onMouseLeave={() => { setHovId(null); setMergeHovId(null); }}
             onClick={() => setSelId(row.id)}
           >
             <div style={{ display: "flex", flex: 1, alignItems: "center", gap: 4, paddingLeft: 4, minWidth: 0 }}>
@@ -330,16 +421,25 @@ function BranchTree({ data, hovId, setHovId, selId, setSelId, onMerge, onAddChil
                   onDone={name => onEditDone(row.id, name)}
                 />
               ) : (
-                <span style={{
-                  flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 400,
-                  color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
+                <span
+                  onDoubleClick={e => { e.stopPropagation(); onStartEdit(row.id); }}
+                  style={{
+                    flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 400,
+                    color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}
+                >
                   {row.name}
                 </span>
               )}
               {showActions && row.depth > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                  <div onClick={e => { e.stopPropagation(); onMerge(row.id); }} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Merge into parent">
+                  <div
+                    onClick={e => { e.stopPropagation(); onMerge(row.id); }}
+                    onMouseEnter={() => setMergeHovId(row.id)}
+                    onMouseLeave={() => setMergeHovId(null)}
+                    style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    title="Merge into parent"
+                  >
                     <MergeIcon size={21.6} />
                   </div>
                   <div onClick={e => { e.stopPropagation(); onAddChild(row.id); }} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Add child branch">
@@ -379,7 +479,7 @@ function IndentLines({ lines }) {
   );
 }
 
-function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSelBlock, focusSys, sbExp, togSb, onQuickAdd, editingItemId, onRenameItem, lines = [] }) {
+function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSelBlock, focusSys, sbExp, togSb, onQuickAdd, editingItemId, onRenameItem, onStartEditItem, editingIfaceId, onStartEditIface, onRenameIface, lines = [] }) {
   const hasChildren = !!(node.children?.length);
   const nodeIfaces = ifaces.filter(i => i.source === node.id || i.target === node.id);
   const isOpen = sbExp.has(node.id);
@@ -449,10 +549,13 @@ function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSe
               onDone={name => onRenameItem(node.id, name)}
             />
           ) : (
-            <span style={{
-              flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 400,
-              color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>
+            <span
+              onDoubleClick={e => { e.stopPropagation(); onStartEditItem(node.id); }}
+              style={{
+                flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 400,
+                color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}
+            >
               {node.name}
             </span>
           )}
@@ -500,12 +603,22 @@ function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSe
                   <ChevronDown size={12} />
                 </div>
                 <div style={{ flexShrink: 0 }}><InterfaceIcon size={24} /></div>
-                <span style={{
-                  flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 400,
-                  color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>
-                  {iface.name}
-                </span>
+                {editingIfaceId === iface.id ? (
+                  <BranchNameInput
+                    initialName={iface.name}
+                    onDone={name => onRenameIface(iface.id, name)}
+                  />
+                ) : (
+                  <span
+                    onDoubleClick={e => { e.stopPropagation(); onStartEditIface(iface.id); }}
+                    style={{
+                      flex: 1, fontFamily: FONT, fontSize: 12, fontWeight: 400,
+                      color: TOKENS.textPrimary, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                    }}
+                  >
+                    {iface.name}
+                  </span>
+                )}
               </div>
             </div>
           );
@@ -517,7 +630,8 @@ function ItemTreeNode({ node, ifaces, depth, hovId, setHovId, selId, onSel, onSe
             key={child.id} node={child} ifaces={ifaces} depth={depth + 1}
             hovId={hovId} setHovId={setHovId} selId={selId} onSel={onSel} onSelBlock={onSelBlock}
             focusSys={focusSys} sbExp={sbExp} togSb={togSb} onQuickAdd={onQuickAdd}
-            editingItemId={editingItemId} onRenameItem={onRenameItem}
+            editingItemId={editingItemId} onRenameItem={onRenameItem} onStartEditItem={onStartEditItem}
+            editingIfaceId={editingIfaceId} onStartEditIface={onStartEditIface} onRenameIface={onRenameIface}
             lines={childLines}
           />
         );
@@ -558,6 +672,8 @@ export default function Sidebar({
   onAddItem,
   editingItemId,
   onRenameItem,
+  onStartEditItem,
+  onRenameIface,
 }) {
   const [branchHovId, setBranchHovId] = useState(null);
   const [branchSelId, setBranchSelId] = useState(null);
@@ -565,6 +681,7 @@ export default function Sidebar({
   const [editingBranchId, setEditingBranchId] = useState(null);
   const [itemHovId, setItemHovId] = useState(null);
   const [itemSelId, setItemSelId] = useState(null);
+  const [editingSidebarIfaceId, setEditingSidebarIfaceId] = useState(null);
   const effectiveItemSelId = selBlockId || itemSelId || selId;
 
   const [branchHeight, setBranchHeight] = useState(null);
@@ -620,6 +737,11 @@ export default function Sidebar({
     setBranchTree(t => renameInTree(t, nodeId, newName));
     setEditingBranchId(null);
   }, []);
+
+  const handleRenameIfaceSidebar = useCallback((id, newName) => {
+    if (onRenameIface) onRenameIface(id, newName);
+    setEditingSidebarIfaceId(null);
+  }, [onRenameIface]);
 
   return (
     <div style={{
@@ -699,6 +821,7 @@ export default function Sidebar({
             onAddChild={handleAddChild}
             editingId={editingBranchId}
             onEditDone={handleEditDone}
+            onStartEdit={setEditingBranchId}
           />
         </div>
       </div>
@@ -808,7 +931,8 @@ export default function Sidebar({
               onSel={id => { setItemSelId(id); if (onSel) onSel(id); }}
               onSelBlock={id => { setItemSelId(null); if (onSelBlock) onSelBlock(id); }}
               focusSys={focusSys} sbExp={sbExp} togSb={togSb} onQuickAdd={onQuickAdd}
-              editingItemId={editingItemId} onRenameItem={onRenameItem}
+              editingItemId={editingItemId} onRenameItem={onRenameItem} onStartEditItem={onStartEditItem}
+              editingIfaceId={editingSidebarIfaceId} onStartEditIface={setEditingSidebarIfaceId} onRenameIface={handleRenameIfaceSidebar}
             />
           ))}
         </div>
